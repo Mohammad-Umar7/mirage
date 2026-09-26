@@ -15,6 +15,7 @@ import { OrganicLabels } from "./hud/OrganicLabels";
 import { TargetRing } from "./hud/TargetRing";
 import { TopBar } from "./hud/TopBar";
 import { AttackerConsole } from "./panels/AttackerConsole";
+import { EvidencePanel } from "./panels/EvidencePanel";
 
 const Scene = dynamic(() => import("./scene/Scene"), { ssr: false });
 
@@ -37,6 +38,7 @@ export default function MirageApp() {
       <AttackerConsole />
       <Feed />
       <MetricsStrip />
+      <EvidencePanel />
       <ConnectionOverlay />
     </main>
   );

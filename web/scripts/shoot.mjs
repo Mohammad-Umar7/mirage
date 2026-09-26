@@ -39,6 +39,11 @@ for (const step of plan) {
     await page.getByText("Launch swarm").click();
   } else if (kind === "key") await page.keyboard.press(a);
   else if (kind === "click") await page.getByText(a, { exact: false }).first().click();
+  else if (kind === "wheel") {
+    const [x, y, dy] = step.split(":").slice(1).map(Number);
+    await page.mouse.move(x, y);
+    await page.mouse.wheel(0, dy);
+  }
   else if (kind === "shot") {
     const file = resolve(out, `${a}.png`);
     await page.screenshot({ path: file });

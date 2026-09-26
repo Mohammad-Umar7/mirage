@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fixed, int, simSpan } from "@/lib/format";
 import { hudBus } from "@/lib/hudBus";
+import { commands } from "@/lib/socket";
 import { useMirage } from "@/lib/store";
 
 const LOCK = 0.85;
@@ -51,10 +52,12 @@ function Readout({ locked, cluster }: { locked: boolean; cluster: NonNullable<Re
           {locked ? "Swarm detected" : "Acquiring target"}
         </span>
       </div>
-      <div className="mt-2 hud-value text-[12.5px] leading-relaxed text-ink">
-        <span className={locked ? "text-red-glow glow-red" : "text-amber"}>{int(cluster.size)} accounts</span>
-        <span className="text-[var(--ink-faint)]"> · </span>
-        conf <span className="text-gold-soft">{fixed(cluster.confidence, 2)}</span>
+      <div className="mt-2 flex items-baseline gap-2">
+        <span className={`text-[26px] font-light leading-none ${locked ? "text-red-glow glow-red" : "text-amber"}`}>{int(cluster.size)}</span>
+        <span className="hud-label !text-[9px]">accounts</span>
+      </div>
+      <div className="mt-1.5 hud-value whitespace-nowrap text-[11.5px] text-ink/90">
+        confidence <span className="text-gold-soft">{fixed(cluster.confidence, 2)}</span>
         {cluster.level_estimate != null && (
           <>
             <span className="text-[var(--ink-faint)]"> · </span>est. level <span className="text-gold-soft">{cluster.level_estimate}</span>
@@ -70,7 +73,7 @@ function Readout({ locked, cluster }: { locked: boolean; cluster: NonNullable<Re
           </div>
         ))}
       </div>
-      <div className="mt-2 hud-label !text-[8px] !text-[var(--ink-faint)]">click cluster for evidence</div>
+      <div className="mt-2 hud-label !text-[8px] !text-[var(--ink-faint)]">open evidence ›</div>
     </div>
   );
 }
@@ -89,6 +92,7 @@ function useTarget() {
 export function TargetRing() {
   const cluster = useTarget();
   const view = useMirage((s) => s.view);
+  const selected = useMirage((s) => s.selected);
   const root = useRef<HTMLDivElement>(null);
   const ringBox = useRef<HTMLDivElement>(null);
   const readout = useRef<HTMLDivElement>(null);
@@ -231,15 +235,20 @@ export function TargetRing() {
               </text>
             </svg>
           </div>
-          <div ref={readout} className="absolute left-0 top-0">
-            <motion.div
+          <div ref={readout} className="absolute left-0 top-0" style={{ visibility: selected === null ? "visible" : "hidden" }}>
+            <motion.button
+              type="button"
+              onClick={() => {
+                useMirage.getState().select(cluster.id);
+                commands.evidence(cluster.id);
+              }}
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.15, duration: 0.5 }}
-              className={`panel ${locked ? "panel-red" : ""} px-4 py-3`}
+              className={`pointer-events-auto block text-left panel ${locked ? "panel-red" : ""} px-4 py-3 transition hover:brightness-125`}
             >
               <Readout locked={locked} cluster={cluster} />
-            </motion.div>
+            </motion.button>
           </div>
         </motion.div>
       )}
