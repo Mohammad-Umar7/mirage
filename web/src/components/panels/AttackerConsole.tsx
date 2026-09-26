@@ -43,6 +43,7 @@ export function AttackerConsole() {
   const levels = useMirage((s) => s.levels);
   const launches = useMirage((s) => s.launches);
   const demo = useMirage((s) => s.demo.active);
+  const view = useMirage((s) => s.view);
   const [x, setX] = useState(toX(1000));
   const [level, setLevel] = useState(3);
   const [open, setOpen] = useState(true);
@@ -50,6 +51,7 @@ export function AttackerConsole() {
   const spec = useMemo(() => levels.find((l) => l.level === level), [levels, level]);
   const cost = spec?.cost_per_identity ?? 1;
 
+  if (view === "governance") return null;
   return (
     <div className="pointer-events-auto absolute left-10 top-[132px] z-20 w-[300px]">
       <button onClick={() => setOpen((o) => !o)} className="group flex w-full items-center justify-between pb-2">

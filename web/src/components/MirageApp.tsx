@@ -16,6 +16,7 @@ import { TargetRing } from "./hud/TargetRing";
 import { TopBar } from "./hud/TopBar";
 import { AttackerConsole } from "./panels/AttackerConsole";
 import { EvidencePanel } from "./panels/EvidencePanel";
+import { GovernanceView } from "./panels/GovernanceView";
 
 const Scene = dynamic(() => import("./scene/Scene"), { ssr: false });
 
@@ -39,6 +40,7 @@ export default function MirageApp() {
       <Feed />
       <MetricsStrip />
       <EvidencePanel />
+      <GovernanceView />
       <ConnectionOverlay />
     </main>
   );
