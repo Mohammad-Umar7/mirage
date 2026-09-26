@@ -1,0 +1,18 @@
+{
+  "name": "mirage",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sybil resistance under AI agent swarms: live coordination detection, evidence, and correlation-weighted on-chain governance",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "node scripts/dev.mjs",
+    "start": "node scripts/dev.mjs --prod",
+    "chain": "node scripts/dev.mjs --chain-only",
+    "test": "node scripts/test.mjs"
+  }
+}
