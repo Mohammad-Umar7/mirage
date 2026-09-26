@@ -32,7 +32,9 @@ export function OrganicLabels() {
         // keep clear of the targeting ring and of the HUD bands
         const nearRing = swarm && Math.hypot(x - swarm.x, y - swarm.y) < Math.max(150, swarm.r * 2.4 + 60);
         const inBands = y < 110 || y > vh - 150 || x < 360 || x > vw - 160;
-        el.style.opacity = nearRing || inBands ? "0" : s.depth > 520 ? "0.35" : "1";
+        // the evidence panel is translucent: never let a tag show through it
+        const underPanel = useMirage.getState().selected !== null && x > vw - 520;
+        el.style.opacity = nearRing || inBands || underPanel ? "0" : s.depth > 520 ? "0.35" : "1";
         el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
       }
     });
