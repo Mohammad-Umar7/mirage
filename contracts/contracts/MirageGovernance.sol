@@ -49,6 +49,11 @@ contract MirageGovernance {
 
     mapping(uint256 => Proposal) public proposals;
     uint256[] public proposalIds;
+    // Proposals whose tallies still follow new attestations. Attestation cost is
+    // linear in this set, so the relayer retires proposals that are closed or
+    // belong to a world that has been reset; the history stays in proposalIds.
+    uint256[] private _active;
+    mapping(uint256 => uint256) private _activeSlot; // proposal => index + 1 (0 = not active)
     mapping(uint256 => mapping(address => uint8)) public voteOf; // 1 = yes, 2 = no
 
     uint256 public epoch; // latest finalized attestation epoch (0 = none yet)
@@ -62,6 +67,7 @@ contract MirageGovernance {
 
     event Registered(uint256 added, uint256 total);
     event ProposalCreated(uint256 indexed id, string title, address recipient, uint256 amount);
+    event ProposalsRetired(uint256 retired, uint256 active);
     event VotesCast(uint256 indexed id, uint256 accepted, uint32 yes, uint32 no);
     event EpochBegun(uint256 indexed epoch, uint256 clusters);
     event MembersAttested(uint256 indexed epoch, uint256 chunk, uint256 members);
@@ -133,7 +139,26 @@ contract MirageGovernance {
         p.end = end;
         p.exists = true;
         proposalIds.push(id);
+        _active.push(id);
+        _activeSlot[id] = _active.length;
         emit ProposalCreated(id, title, recipient, amount);
+    }
+
+    /// @notice Stop folding new attestations into these proposals (closed, or from a reset world).
+    ///         Their existing tallies are kept; only future cluster updates skip them.
+    function retireProposals(uint256[] calldata ids) external onlyRelayer {
+        uint256 retired;
+        for (uint256 i; i < ids.length; ++i) {
+            uint256 slot = _activeSlot[ids[i]];
+            if (slot == 0) continue;
+            uint256 last = _active[_active.length - 1];
+            _active[slot - 1] = last;
+            _activeSlot[last] = slot;
+            _active.pop();
+            delete _activeSlot[ids[i]];
+            ++retired;
+        }
+        emit ProposalsRetired(retired, _active.length);
     }
 
     // ------------------------------------------------------------------
@@ -211,15 +236,15 @@ contract MirageGovernance {
         if (members.length != ids.length) revert LengthMismatch();
         bytes32 digest = keccak256(abi.encode(address(this), block.chainid, "MIRAGE_MEMBERS", e, chunk, members, ids));
         if (_recover(digest, sig) != oracle) revert BadSignature();
-        uint256 np = proposalIds.length;
+        uint256 np = _active.length;
         for (uint256 i; i < members.length; ++i) {
             address m = members[i];
             uint32 k = ids[i];
             if (k == 0 || clusterOf[e][m] != 0) continue;
             clusterOf[e][m] = k;
-            // fold in votes this account already cast
+            // fold in votes this account already cast on proposals still being tallied
             for (uint256 j; j < np; ++j) {
-                uint256 pid = proposalIds[j];
+                uint256 pid = _active[j];
                 uint8 c = voteOf[pid][m];
                 if (c == 1) ++clusterYes[pid][e][k];
                 else if (c == 2) ++clusterNo[pid][e][k];
@@ -274,6 +299,10 @@ contract MirageGovernance {
 
     function proposalCount() external view returns (uint256) {
         return proposalIds.length;
+    }
+
+    function activeProposals() external view returns (uint256[] memory) {
+        return _active;
     }
 
     /// @notice natural log of a positive integer, in WAD: binary log2, then * ln 2.
