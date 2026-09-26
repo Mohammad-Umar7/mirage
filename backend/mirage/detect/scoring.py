@@ -128,6 +128,9 @@ def group_metrics(members: np.ndarray, ctx: ScoringContext, full: bool = True) -
         m["vote_agreement"] = float(max(yes, len(choices) - yes) / len(choices))
         maj_t = np.array([t for t, c in votes if c == maj])
         m["vote_window"] = min_window(maj_t) if len(maj_t) >= 3 else _nan()
+        member_set = set(members.tolist())
+        others = np.array([t for t, a in ctx.store.proposal_votes.get(pid, ()) if a not in member_set])
+        m["vote_ref_window"] = min_window(others) if len(others) >= 10 else _nan()
 
     lats = np.array([ctx.latency_of(a) for a in members[:600].tolist()])
     lats = lats[np.isfinite(lats)]
@@ -196,9 +199,17 @@ def strengths(m: dict, base: Baseline) -> dict[str, float]:
                                                                             120.0, 7 * DAY))
     burst = 0.8 * ramp_down_log(m.get("fund_window_all", float("nan")), 120.0, 7 * DAY) * m.get("fund_funded_frac", 0)
     s["funding"] = max(shared, burst)
+    # Lockstep = voting far tighter than everyone else who voted on the same
+    # proposal (members excluded). Early in a vote every window is short, so
+    # an absolute window alone would be unfair to real blocs.
     part = m.get("vote_participation", 0.0)
-    s["vote"] = ramp(part, 0.3, 0.7) * ramp(m.get("vote_agreement", 0.0), 0.75, 0.95) * \
-        ramp_down_log(m.get("vote_window", float("nan")), 15.0, DAY)
+    window, ref = m.get("vote_window", float("nan")), m.get("vote_ref_window", float("nan"))
+    if ref == ref and ref > 0 and window == window:
+        tight = ramp_down_log(window / ref, 0.02, 0.4)
+    else:
+        tight = ramp_down_log(window, 15.0, DAY)
+    voters = part * m.get("size", 0)
+    s["vote"] = ramp(part, 0.3, 0.7) * ramp(m.get("vote_agreement", 0.0), 0.75, 0.95) * tight *         ramp(voters, 10, 30)
     pop = base.latency_pop
     lat = m.get("latency_med", float("nan"))
     if pop and lat == lat and m.get("latency_n", 0) >= 5:
@@ -235,7 +246,7 @@ def confidence(s: dict[str, float], size: int) -> tuple[float, list[str]]:
         conf = min(conf, 0.25)
     elif len(strong) == 1 or not behavioral or not coordinated:
         conf = min(conf, 0.45)
-    conf *= ramp(size, 3, 10)
+    conf *= ramp(size, 5, 20)  # a handful of accounts is where coincidences live
     return float(conf), strong
 
 
