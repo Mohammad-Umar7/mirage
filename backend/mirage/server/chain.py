@@ -40,6 +40,10 @@ TX_GAS = 15_500_000
 REGISTER_CHUNK = 450
 VOTE_CHUNK = 250
 MEMBER_CHUNK = 280
+# attestMembers folds each member's earlier votes into every active proposal,
+# so its gas grows with that set: size member chunks to stay under TX_GAS
+MEMBER_GAS_BASE = 30_000
+MEMBER_GAS_PER_PROPOSAL = 6_000
 
 
 def _personal_sign(key: keys.PrivateKey, digest: bytes) -> bytes:
@@ -97,6 +101,8 @@ class ChainBridge:
         self.session = int(time.time()) % 1_000_000
         self._registered = 0
         self._created: set[int] = set()
+        self._closes: dict[int, float] = {}
+        self._retired: set[int] = set()
         self._vote_cursor = 0
         self._last_flagged: tuple = ()
         self._last_attest_at = 0.0
@@ -151,7 +157,7 @@ class ChainBridge:
                 choices = net.ev_aux.a[start:end][idx]
                 votes = list(zip(voters.tolist(), pids.tolist(), choices.tolist()))
             self._vote_cursor = end
-        self.jobs.put(("sync", n_acc, props, votes))
+        self.jobs.put(("sync", n_acc, props, votes, float(net.now)))
 
     def on_detection(self, result, net) -> None:
         flagged = [(c.id, c.members.copy()) for c in result.clusters
@@ -217,11 +223,15 @@ class ChainBridge:
     def _run(self, job) -> None:
         kind = job[0]
         if kind == "reset":
+            # the old world's proposals stop taking attestations (keeps attest gas bounded)
+            self._retire([pid for pid in self._created if pid not in self._retired])
             self.world = job[1]
             self._created.clear()
+            self._closes.clear()
+            self._retired.clear()
             self.onchain = {}
             return
-        _, n_acc, props, votes = job
+        _, n_acc, props, votes, now = job
         if n_acc > self._registered:
             self.accounts.ensure(n_acc)
             for s in range(self._registered, n_acc, REGISTER_CHUNK):
@@ -236,6 +246,7 @@ class ChainBridge:
                                                          int(max(0, created)), int(max(0, closes))),
                        "proposal", f"#{pid} {title[:40]}")
             self._created.add(pid)
+            self._closes[pid] = float(closes)
         by_pid: dict[int, list[tuple[int, int]]] = {}
         for voter, pid, choice in votes:
             if pid in self._created:
@@ -255,6 +266,20 @@ class ChainBridge:
                     sigs.append(_personal_sign(self.accounts.key(voter), digest))
                 self._send(self.gov.functions.castVotes(cpid, addrs, choices, sigs), "votes",
                            f"#{pid} · {len(part):,} signed votes")
+        # a closed proposal's tally is final: stop folding new attestations into it
+        self._retire([pid for pid, closes in self._closes.items()
+                      if closes and now > closes and pid not in self._retired])
+
+    def _retire(self, pids: list[int]) -> None:
+        if not pids:
+            return
+        try:
+            fn = self.gov.functions.retireProposals([self.chain_pid(pid) for pid in sorted(pids)])
+        except Exception:  # an older deployment without retirement: nothing to do
+            self._retired.update(pids)
+            return
+        self._send(fn, "retire", f"{len(pids)} proposal{'s' if len(pids) != 1 else ''} closed")
+        self._retired.update(pids)
 
     def _attest(self, flagged: list[tuple[int, np.ndarray]]) -> None:
         if time.monotonic() - self._last_attest_at < 4.0 and flagged:
@@ -268,8 +293,13 @@ class ChainBridge:
         self._send(self.gov.functions.beginEpoch(e, ids, sizes, _personal_sign(self.oracle_key, digest)), "oracle",
                    f"epoch {e} · {len(ids)} flagged cluster{'s' if len(ids) != 1 else ''}")
         rows = [(self.accounts.addr(int(a)), int(cid)) for cid, members in flagged for a in members.tolist()]
-        for chunk, s in enumerate(range(0, len(rows), MEMBER_CHUNK)):
-            part = rows[s:s + MEMBER_CHUNK]
+        try:
+            active = len(self.gov.functions.activeProposals().call())
+        except Exception:
+            active = len(self._created)
+        size = int(min(MEMBER_CHUNK, max(20, (TX_GAS * 0.8) // (MEMBER_GAS_BASE + MEMBER_GAS_PER_PROPOSAL * active))))
+        for chunk, s in enumerate(range(0, len(rows), size)):
+            part = rows[s:s + size]
             members = [r[0] for r in part]
             mids = [r[1] for r in part]
             digest = keccak(abi_encode(["address", "uint256", "string", "uint256", "uint256", "address[]", "uint32[]"],
