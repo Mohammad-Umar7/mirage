@@ -97,8 +97,9 @@ class DetectorConfig(_EnvMixin):
     funding_hops: int = 4
     hub_min_recipients: int = 150
     hub_min_span_days: float = 10.0
-    z_floor: float = 2.5
+    z_floor: float = 3.0
     z_full: float = 6.0
+    single_signal_factor: float = 0.35
     min_edge_weight: float = 0.3
     min_community: int = 5
     swarm_threshold: float = 0.6
