@@ -41,3 +41,6 @@ deployments/local.json
 Thumbs.db
 .idea/
 .vscode/
+
+# local screenshot scratch
+.shots/
