@@ -54,6 +54,8 @@ class FeatureStore:
         self.coacts: list[deque] = []
         self.latency: list[deque] = []
         self.votes: list[dict[int, tuple[float, int]]] = []
+        self.proposal_votes: dict[int, list[tuple[float, int]]] = {}
+        self.first_seen_t: float | None = None
         self.follows: list[set[int]] = []
         self.follow_version = 0
         self._follow_matrix = None
@@ -117,6 +119,8 @@ class FeatureStore:
                 self.follows.append(set())
             self.n = n_acc
         self.now = float(net.now)
+        if self.first_seen_t is None:
+            self.first_seen_t = self.now
         self._advance(self.now)
         self.funding.ingest(net)
 
@@ -159,7 +163,9 @@ class FeatureStore:
                     self.follow_version += 1
                 self.coacts[a].append((t, CO_FOLLOW, o))
             elif k == EventKind.VOTE:
-                self.votes[a].setdefault(o, (t, x))
+                if o not in self.votes[a]:
+                    self.votes[a][o] = (t, x)
+                    self.proposal_votes.setdefault(o, []).append((t, a))
                 self.coacts[a].append((t, CO_VOTE, o * 2 + x))
             elif k == EventKind.TRANSFER:
                 self.coacts[a].append((t, CO_TRANSFER, x))
