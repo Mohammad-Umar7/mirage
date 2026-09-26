@@ -79,9 +79,13 @@ def _swarm(m: dict, s: dict[str, float], base: Baseline, net: NetworkState) -> l
     if s.get("vote", 0) > 0.05 and "vote_pid" in m:
         choice = "YES" if m.get("vote_choice") == 1 else "NO"
         voters = round(m["vote_participation"] * size)
-        ev.append(Evidence("voting", "LOCKSTEP VOTE",
-                           f"{voters:,} accounts voted {choice} on Proposal #{m['vote_pid']} within a "
-                           f"{fmt_duration(m['vote_window'])} window", m["vote_window"], None, s["vote"]))
+        text = (f"{voters:,} accounts voted {choice} on Proposal #{m['vote_pid']} within a "
+                f"{fmt_duration(m['vote_window'])} window")
+        ref = m.get("vote_ref_window", float("nan"))
+        if ref == ref:
+            text += f" (everyone else: {fmt_span(ref)})"
+        ev.append(Evidence("voting", "LOCKSTEP VOTE", text, m["vote_window"], ref if ref == ref else None,
+                           s["vote"]))
 
     # --- behaviour
     if s.get("behavior", 0) > 0.05:
