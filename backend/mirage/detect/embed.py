@@ -46,8 +46,13 @@ class MiniLMEmbedder:
     name = "minilm"
 
     def __init__(self, device: str | None = None) -> None:
+        import warnings
+
         import torch
         from sentence_transformers import SentenceTransformer
+
+        # harmless on Windows builds of torch; keep it out of the console
+        warnings.filterwarnings("ignore", message=".*not compiled with flash attention.*")
 
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         try:
