@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage import correlate1d
 from scipy.sparse import csr_matrix
 from sklearn.decomposition import TruncatedSVD
 
@@ -85,11 +85,19 @@ def timing_signal(store: FeatureStore, cfg: DetectorConfig) -> DenseSignal:
     A = store.timing_matrix()
     rows = np.flatnonzero(A.sum(axis=1) >= cfg.min_timing_events)
     M = np.log1p(A[rows])
-    fine = gaussian_filter1d(M, sigma=cfg.smooth_bins, axis=1, mode="constant")
-    coarse = gaussian_filter1d(M, sigma=cfg.smooth_bins * 5.0, axis=1, mode="constant")
-    M = fine - coarse
+    # one difference-of-Gaussians pass == fine smooth minus coarse smooth
+    M = correlate1d(M, _dog_kernel(cfg.smooth_bins, cfg.smooth_bins * 5.0), axis=1, mode="constant")
+    M = M[:, ::2]  # the band-passed series is smooth enough to halve its rate
     M -= M.mean(axis=1, keepdims=True)
     return DenseSignal.build("timing", store.n, rows, M.astype(np.float32), project=cfg.timing_dims)
+
+
+def _dog_kernel(fine: float, coarse: float) -> np.ndarray:
+    radius = int(4 * coarse + 0.5)
+    x = np.arange(-radius, radius + 1, dtype=np.float64)
+    g1 = np.exp(-0.5 * (x / fine) ** 2)
+    g2 = np.exp(-0.5 * (x / coarse) ** 2)
+    return (g1 / g1.sum() - g2 / g2.sum()).astype(np.float32)
 
 
 def content_signal(store: FeatureStore, cfg: DetectorConfig, center: np.ndarray | None
@@ -146,7 +154,10 @@ def _account_behavior(store: FeatureStore, a: int, cutoff: float, min_events: in
     """
     ver = int(store.action_ver[a])
     cached = store.beh_cache.get(a)
-    if cached is not None and cached[0] == ver and cached[1] >= cutoff:
+    # Reuse unless the account acted, or its oldest counted action left the
+    # window more than 6 simulated hours ago (one old action expiring barely
+    # moves a profile; recomputing thousands of them every tick would).
+    if cached is not None and cached[0] == ver and (cached[1] >= cutoff or store.now - cached[5] < 360.0):
         return cached[2], cached[3], cached[4]
     acts = store.window_actions(a)
     earliest = acts[0][0] if acts else float("inf")
@@ -162,7 +173,7 @@ def _account_behavior(store: FeatureStore, a: int, cutoff: float, min_events: in
         for shift in (0.0, width / 2):
             bucket = int((t + shift) // width)
             keys.append(((code * 4 + (1 if shift else 0)) << 50) | (int(obj) << 18) | (bucket & 0x3FFFF))
-    store.beh_cache[a] = (ver, earliest, len(acts), profile, keys)
+    store.beh_cache[a] = (ver, earliest, len(acts), profile, keys, store.now)
     return len(acts), profile, keys
 
 
