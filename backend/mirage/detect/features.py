@@ -55,6 +55,9 @@ class FeatureStore:
         self.latency: list[deque] = []
         self.votes: list[dict[int, tuple[float, int]]] = []
         self.follows: list[set[int]] = []
+        self.follow_version = 0
+        self._follow_matrix = None
+        self._follow_key: tuple[int, int] = (-1, -1)
         self.embed_queue: deque[tuple[int, int, float]] = deque()
         self.funding = FundingGraph(cfg)
         self.events_seen = 0
@@ -151,7 +154,9 @@ class FeatureStore:
                     self.latency[a].append((t, t - float(post_t[x])))
                     self.coacts[a].append((t, CO_REPLY, x))
             elif k == EventKind.FOLLOW:
-                self.follows[a].add(o)
+                if o not in self.follows[a]:
+                    self.follows[a].add(o)
+                    self.follow_version += 1
                 self.coacts[a].append((t, CO_FOLLOW, o))
             elif k == EventKind.VOTE:
                 self.votes[a].setdefault(o, (t, x))
@@ -201,6 +206,26 @@ class FeatureStore:
         counts = valid.sum(axis=1)
         sums = np.einsum("np,npd->nd", valid.astype(np.float32), self.sty[:n])
         return (sums / np.maximum(counts, 1)[:, None]).astype(np.float32), counts
+
+    def follow_matrix(self):
+        """CSR (n x n): F[a, b] = 1 when account a follows account b."""
+        from scipy.sparse import csr_matrix
+
+        key = (self.follow_version, self.n)
+        if self._follow_matrix is None or self._follow_key != key:
+            rows, cols = [], []
+            for a in range(self.n):
+                fs = self.follows[a]
+                if fs:
+                    rows.extend([a] * len(fs))
+                    cols.extend(fs)
+            cols_a = np.asarray(cols, dtype=np.int64)
+            ok = cols_a < self.n
+            self._follow_matrix = csr_matrix(
+                (np.ones(int(ok.sum()), dtype=np.float32), (np.asarray(rows, dtype=np.int64)[ok], cols_a[ok])),
+                shape=(self.n, self.n))
+            self._follow_key = key
+        return self._follow_matrix
 
     def window_actions(self, a: int) -> list[tuple[float, int]]:
         cutoff = self.now - self.window
