@@ -168,6 +168,13 @@ def terrain(engine, result: DetectionResult, hours: int = 72, background_lanes: 
         mem = pool[pool % background_lanes == b][:250]
         if len(mem):
             bg.append({"kind": "normal", "cluster": -1, "size": int(len(mem)), "values": H[mem].mean(axis=0)})
+    # the same gentle smoothing for every lane: averaging a few hundred people
+    # per 30-minute bin leaves sampling noise; a synchronized swarm burst is
+    # tall and narrow and survives it as a sharp ridge
+    from scipy.ndimage import gaussian_filter1d
+
+    for lane in bg + lanes:
+        lane["values"] = gaussian_filter1d(np.asarray(lane["values"], dtype=np.float64), sigma=1.2, mode="nearest")
     ref = np.percentile(np.concatenate([x["values"] for x in bg]), 99) if bg else 1.0
     scale = 1.0 / max(ref * 2.5, 1e-6)
     ordered = bg[: len(bg) // 2] + lanes + bg[len(bg) // 2:]
