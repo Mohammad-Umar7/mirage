@@ -13,6 +13,7 @@ import { Frame } from "./hud/Frame";
 import { MetricsStrip } from "./hud/MetricsStrip";
 import { OrganicLabels } from "./hud/OrganicLabels";
 import { TargetRing } from "./hud/TargetRing";
+import { TerrainLegend } from "./hud/TerrainLegend";
 import { TopBar } from "./hud/TopBar";
 import { AttackerConsole } from "./panels/AttackerConsole";
 import { EvidencePanel } from "./panels/EvidencePanel";
@@ -35,6 +36,7 @@ export default function MirageApp() {
       <Frame />
       <OrganicLabels />
       <TargetRing />
+      <TerrainLegend />
       <TopBar />
       <AttackerConsole />
       <Feed />
