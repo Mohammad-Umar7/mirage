@@ -112,6 +112,9 @@ class Runtime:
         self.world_id += 1
         self.launches = []
         self._runs = 0
+        if self.chain is not None:
+            self.chain.on_reset(self.world_id)
+            self.chain.on_tick(world.sim.net)
         self._on_detection(result)
 
     # --------------------------------------------------------------- loop
@@ -186,6 +189,8 @@ class Runtime:
         sim, engine = world.sim, world.engine
         posts0 = sim.net.n_posts
         summary = sim.step()
+        if self.chain is not None:
+            self.chain.on_tick(sim.net)
         msgs = [self._tick_msg(summary, posts0)]
         if sim.tick % self.rt_cfg.detect_every == 0:
             result = engine.run(sim.public)
