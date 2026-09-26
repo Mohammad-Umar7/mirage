@@ -34,7 +34,9 @@ export function OrganicLabels() {
         const inBands = y < 110 || y > vh - 150 || x < 360 || x > vw - 160;
         // the evidence panel is translucent: never let a tag show through it
         const underPanel = useMirage.getState().selected !== null && x > vw - 520;
-        el.style.opacity = nearRing || inBands || underPanel ? "0" : s.depth > 520 ? "0.35" : "1";
+        const card = hudBus.readout;
+        const underCard = !!card && x < card.x1 + 12 && x + 150 > card.x0 - 12 && y < card.y1 + 12 && y + 26 > card.y0 - 12;
+        el.style.opacity = nearRing || inBands || underPanel || underCard ? "0" : s.depth > 520 ? "0.35" : "1";
         el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
       }
     });
