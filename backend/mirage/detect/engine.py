@@ -31,6 +31,21 @@ N_RANDOM_GROUPS = 6
 RANDOM_GROUP_SIZE = 30
 
 
+_POOL_LIMIT = None
+
+
+def _limit_thread_pools() -> None:
+    """BLAS and FAISS each spawning a pool per core hurts more than it helps."""
+    global _POOL_LIMIT
+    if _POOL_LIMIT is None:
+        try:
+            from threadpoolctl import threadpool_limits
+
+            _POOL_LIMIT = threadpool_limits(limits=8)
+        except Exception:  # pragma: no cover - optional dependency
+            _POOL_LIMIT = False
+
+
 def _topk_mask(nodes: np.ndarray, score: np.ndarray, k: int) -> np.ndarray:
     """Mask of edges that are among the top-k (by score) edges of `nodes`."""
     if len(nodes) == 0:
@@ -55,14 +70,10 @@ class DetectionEngine:
         self.runs = 0
         self.flagged = np.zeros(0, dtype=bool)
         self.memory: dict[int, tuple[float, dict[str, float]]] = {}
+        self.last_signals: dict = {}
         self._n_prev = 0
         self.last: DetectionResult | None = None
-        try:  # BLAS and FAISS each spawning a pool per core hurts more than it helps
-            from threadpoolctl import threadpool_limits
-
-            self._pool_limit = threadpool_limits(limits=8)
-        except Exception:  # pragma: no cover - optional
-            self._pool_limit = None
+        _limit_thread_pools()
 
     # ------------------------------------------------------------------ run
     def run(self, net: NetworkState) -> DetectionResult:
@@ -97,6 +108,7 @@ class DetectionEngine:
         funding = FundingSignal(fview, n)
         social = SocialSignal(store.follow_matrix())
         dense = {"timing": timing, "content": content, "style": style, "behavior": behavior}
+        self.last_signals = dense
         mark("signals")
 
         flagged = self._flag_mask(n)
