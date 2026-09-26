@@ -250,13 +250,14 @@ def confidence(s: dict[str, float], size: int) -> tuple[float, list[str]]:
     return float(conf), strong
 
 
-def verdict(conf: float, s: dict[str, float], m: dict, swarm_threshold: float, min_size: int) -> str:
+def verdict(conf: float, s: dict[str, float], m: dict, swarm_threshold: float, min_size: int,
+            min_organic: int = 8) -> str:
     if conf >= swarm_threshold:
         return SWARM
     # Organic cohesion = shared interests or real social ties. Edge weight is
     # deliberately not used: a not-yet-active swarm is tightly wired too.
     cohesion = max(s.get("content", 0.0), s.get("social", 0.0))
-    if m["size"] >= min_size and cohesion >= 0.3:
+    if m["size"] >= max(min_size, min_organic) and cohesion >= 0.3:
         return ORGANIC
     return NORMAL
 
