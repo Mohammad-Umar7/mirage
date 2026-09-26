@@ -88,9 +88,13 @@ class DetectorConfig(_EnvMixin):
     window_hours: float = 96.0
     bin_minutes: float = 15.0
     smooth_bins: float = 1.5
-    knn_k: int = 12
+    knn_k: int = 10
+    candidate_z: float = 3.75
     min_events: int = 3
+    min_timing_events: int = 4
     min_posts: int = 2
+    timing_dims: int = 64
+    content_dims: int = 96
     posts_per_account: int = 8
     style_posts_per_account: int = 12
     behavior_dims: int = 48
@@ -99,7 +103,7 @@ class DetectorConfig(_EnvMixin):
     hub_min_span_days: float = 10.0
     z_floor: float = 3.0
     z_full: float = 6.0
-    single_signal_factor: float = 0.35
+    single_signal_factor: float = 0.25
     min_edge_weight: float = 0.3
     min_community: int = 5
     swarm_threshold: float = 0.6

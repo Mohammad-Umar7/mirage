@@ -16,10 +16,11 @@ from .baseline import Baseline
 from .embed import make_embedder
 from .evidence import build_evidence
 from .features import FeatureStore
-from .graph import ALPHA, candidate_pairs, consolidate, fuse, leiden_communities, pair_similarities
+from .graph import ALPHA, candidate_pairs, consolidate, fuse, leiden_communities, pair_similarities, refine
 from .knn import backend_name
-from .scoring import ScoringContext, confidence, group_metrics, level_estimate, strengths, verdict
-from .signals import FundingSignal, behavior_signal, content_signal, style_signal, timing_signal
+from .scoring import (ScoringContext, confidence, group_metrics, level_estimate, session_script, strengths,
+                      verdict)
+from .signals import FundingSignal, SocialSignal, behavior_signal, content_signal, style_signal, timing_signal
 from .tracking import ClusterTracker
 from .types import ORGANIC, SWARM, Cluster, DetectionResult
 from .weights import account_weights
@@ -87,6 +88,7 @@ class DetectionEngine:
         behavior, b_rows, b_prof = behavior_signal(store, cfg, base.ngram_center, seed=cfg.seed)
         fview = store.funding.account_view(store.wallet[:n])
         funding = FundingSignal(fview, n)
+        social = SocialSignal(store.follow_matrix())
         dense = {"timing": timing, "content": content, "style": style, "behavior": behavior}
         mark("signals")
 
@@ -101,19 +103,20 @@ class DetectionEngine:
             rp_j = rng.choice(pool, N_RANDOM_PAIRS)
             ok = rp_i != rp_j
             rp_i, rp_j = rp_i[ok], rp_j[ok]
-        rsims = pair_similarities(dense, funding, rp_i, rp_j)
+        rsims = pair_similarities(dense, funding, social, rp_i, rp_j)
         if base.runs == 0:
             base.update_pairs(rsims, alpha=1.0)
 
-        I, J = candidate_pairs(dense, funding, n, cfg.knn_k, rng)
+        I, J = candidate_pairs(dense, funding, social, n, cfg.knn_k, rng, zfun=base.z, zmin=cfg.candidate_z)
         mark("knn")
 
-        sims = pair_similarities(dense, funding, I, J)
+        sims = pair_similarities(dense, funding, social, I, J)
         z = {name: base.z(name, s) for name, s in sims.items()}
         w, bits, _ = fuse(z, cfg)
         mark("fuse")
 
         groups = leiden_communities(n, I, J, w, cfg)
+        groups = refine(groups, dense, I, J, w, n, cfg)
         groups = consolidate(groups, dense, I, J, w, n, cfg.min_community)
         groups = [g for g in groups if len(g) >= cfg.min_community]
         mark("communities")
@@ -135,6 +138,8 @@ class DetectionEngine:
             s = strengths(m, base)
             conf, _ = confidence(s, len(g))
             v = verdict(conf, s, m, cfg.swarm_threshold, cfg.min_community)
+            if v == SWARM:
+                session_script(g, ctx, m)
             ev = build_evidence(v, m, s, base, net)
             since = self.tracker.mark_flagged(ids[gi], store.now, v == SWARM)
             clusters.append(Cluster(ids[gi], v, conf, level_estimate(m) if v == SWARM else None, g, m, s, ev,
@@ -218,9 +223,11 @@ class DetectionEngine:
         for name, zs in z.items():
             soft += ALPHA[name] * np.clip((np.nan_to_num(zs, nan=-1e9) - 1.0) / (cfg.z_full - 1.0), 0, 1)
         score = np.where(internal, 10.0 + w, 0.5 * soft + w).astype(np.float32)
-        keep_int = internal & (_topk_mask(I, score, 3) | _topk_mask(J, score, 3))
-        keep_bg = ~internal & (score > 0.2) & (_topk_mask(I, score, 1) | _topk_mask(J, score, 1))
-        keep = np.flatnonzero(keep_int | keep_bg)
+        idx = np.flatnonzero(internal | (score > 0.4))
+        Ii, Jj, sc, inner = I[idx], J[idx], score[idx], internal[idx]
+        keep_int = inner & (_topk_mask(Ii, sc, 3) | _topk_mask(Jj, sc, 3))
+        keep_bg = ~inner & (_topk_mask(Ii, sc, 1) | _topk_mask(Jj, sc, 1))
+        keep = idx[keep_int | keep_bg]
         if len(keep) > cfg.viz_edges:
             keep = keep[np.argsort(-score[keep])[: cfg.viz_edges]]
         weight = np.where(internal[keep], w[keep], np.maximum(w[keep], 0.5 * soft[keep]))

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import numpy as np
 
-FLOORS = {"timing": 0.05, "content": 0.05, "style": 0.06, "behavior": 0.05, "funding": 0.1}
+FLOORS = {"timing": 0.05, "content": 0.05, "style": 0.06, "behavior": 0.05, "funding": 0.1, "social": 0.1}
 
 
 class Baseline:
