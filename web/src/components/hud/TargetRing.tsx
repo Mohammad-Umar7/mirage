@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { fixed, int, simSpan } from "@/lib/format";
 import { hudBus } from "@/lib/hudBus";
 import { isFresh, LOCK_CONFIDENCE } from "@/lib/lock";
@@ -98,17 +98,16 @@ export function TargetRing() {
   const ringBox = useRef<HTMLDivElement>(null);
   const readout = useRef<HTMLDivElement>(null);
   const leader = useRef<SVGLineElement>(null);
-  const [lockedAt, setLockedAt] = useState<number | null>(null);
   const locked = !!cluster && cluster.confidence >= LOCK_CONFIDENCE;
+  // a fresh key per acquisition replays the snap-in and the flash
+  const lockKey = locked ? `lock-${cluster.id}` : "acq";
 
+  // keyed on the id: detection updates every second must not re-subscribe
+  // (that would blank the published readout rect for a frame each time)
+  const targetId = cluster?.id ?? null;
   useEffect(() => {
-    if (locked && lockedAt === null) setLockedAt(performance.now());
-    if (!locked && lockedAt !== null) setLockedAt(null);
-  }, [locked, lockedAt]);
-
-  useEffect(() => {
-    if (!cluster) return;
-    const id = cluster.id;
+    if (targetId === null) return;
+    const id = targetId;
     const off = hudBus.subscribe((list) => {
       const s = list.find((c) => c.id === id);
       const el = root.current;
@@ -150,7 +149,7 @@ export function TargetRing() {
       off();
       hudBus.readout = null;
     };
-  }, [cluster]);
+  }, [targetId]);
 
   const color = locked ? "#FF4D40" : "#FFB347";
   const faint = locked ? "rgba(255,77,64,0.45)" : "rgba(255,179,71,0.45)";
@@ -217,7 +216,7 @@ export function TargetRing() {
                 </g>
               )}
               <motion.g
-                key={lockedAt ?? "acq"}
+                key={lockKey}
                 initial={{ scale: locked ? 1.9 : 1.35, opacity: 0 }}
                 animate={{ scale: locked ? [1.9, 0.93, 1] : 1.35, opacity: 1 }}
                 transition={{ duration: locked ? 0.55 : 0.4, ease: [0.16, 1, 0.3, 1] }}
@@ -229,7 +228,7 @@ export function TargetRing() {
               </motion.g>
               {locked && (
                 <motion.circle
-                  key={`flash-${lockedAt}`}
+                  key={`flash-${lockKey}`}
                   r={70}
                   fill="none"
                   stroke="#FFD2C8"
