@@ -1,0 +1,19 @@
+# Core (required)
+numpy>=1.26
+scipy>=1.11
+pandas>=2.0
+scikit-learn>=1.3
+networkx>=3.0
+igraph>=0.11
+leidenalg>=0.10
+fastapi>=0.110
+uvicorn>=0.27
+websockets>=12
+httpx>=0.27
+web3>=6.15
+pytest>=8
+
+# Content embeddings (recommended). Without these MIRAGE falls back to a
+# hashing + random-projection embedder and still runs fully offline.
+sentence-transformers>=2.6
+faiss-cpu>=1.7.4
