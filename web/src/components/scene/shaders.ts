@@ -63,7 +63,7 @@ export const nodeVertex = /* glsl */ `
     float coc = clamp(abs(depth - uFocus) * uAperture, 0.0, 7.0);
     vCoc = coc;
 
-    float base = aSize * (1.0 + vThreat * 0.3 + vOrganic * 0.25) * (1.0 + vPulse * 0.8 + wave * 1.8);
+    float base = aSize * (1.0 + vThreat * 0.4 + vOrganic * 0.25) * (1.0 + vPulse * 0.8 + wave * 1.8);
     float px = base * uScale * min(320.0 / depth, 2.6);
     px += coc * 1.6;
     px *= born;
@@ -142,9 +142,12 @@ export const nodeFragment = /* glsl */ `
       gl_FragColor = vec4(c, a * vAlpha * w);
     } else {
       if (redW < 0.004) discard;
-      float shape = mix(clamp(spark * 1.15 + halo * 0.28, 0.0, 1.0), iconA, icon);
-      vec3 hot = mix(uRedGlow * 0.75, uRed * 1.45, spark) + vec3(0.25, 0.05, 0.04) * (vPulse + vWave) * spark;
-      hot = mix(hot, uRed * (ring * 1.5 + glyph * 1.35) + uRedGlow * halo * 0.2, icon);
+      float shape = mix(clamp(spark * 1.1 + halo * 0.62, 0.0, 1.0), iconA, icon);
+      // keep red at or below 1.1: brighter values bloom into a yellow-white blob
+      vec3 hot = mix(uRed * 0.62, uRed * 1.1, spark) + vec3(0.2, 0.04, 0.03) * (vPulse + vWave) * spark;
+      // a tiny hot centre per point: the cluster reads as thousands of glowing dots
+      hot += vec3(1.0, 0.62, 0.5) * pow(spark, 4.0) * 0.55;
+      hot = mix(hot, uRed * (ring * 1.15 + glyph * 1.05) + uRedGlow * halo * 0.15, icon);
       gl_FragColor = vec4(hot, shape * vAlpha * redW);
     }
   }
@@ -215,9 +218,9 @@ export const haloFragment = /* glsl */ `
   void main() {
     vec2 p = vUv - 0.5;
     float d = length(p) * 2.0;
-    float rq = (d - 0.86) / 0.035;
+    float rq = (d - 0.88) / 0.018;
     float ring = exp(-rq * rq);
-    float fill = smoothstep(1.0, 0.0, d) * 0.06;
+    float fill = smoothstep(1.0, 0.0, d) * 0.035;
     float ang = atan(p.y, p.x);
     float dash = 0.55 + 0.45 * step(0.5, fract(ang * 6.0 / 3.14159 + uTime * 0.05));
     float a = (ring * dash + fill) * uOpacity;
