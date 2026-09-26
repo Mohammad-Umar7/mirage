@@ -51,7 +51,7 @@ export function AttackerConsole() {
   const spec = useMemo(() => levels.find((l) => l.level === level), [levels, level]);
   const cost = spec?.cost_per_identity ?? 1;
 
-  if (view === "governance") return null;
+  if (view !== "network") return null;
   return (
     <div className="pointer-events-auto absolute left-10 top-[132px] z-20 w-[300px]">
       <button onClick={() => setOpen((o) => !o)} className="group flex w-full items-center justify-between pb-2">

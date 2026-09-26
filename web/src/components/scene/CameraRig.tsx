@@ -11,8 +11,8 @@ import { useMirage } from "@/lib/store";
 import { view } from "@/lib/viewState";
 
 const HOME_TARGET = new THREE.Vector3(0, 0, 0);
-const TERRAIN_POS = new THREE.Vector3(0, 150, 330);
-const TERRAIN_TARGET = new THREE.Vector3(0, 10, -10);
+const TERRAIN_POS = new THREE.Vector3(0, 210, 430);
+const TERRAIN_TARGET = new THREE.Vector3(0, -6, -30);
 const tmp = new THREE.Vector3();
 const dir = new THREE.Vector3();
 const viewProj = new THREE.Matrix4();

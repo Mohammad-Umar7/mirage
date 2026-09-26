@@ -9,7 +9,7 @@ export function Feed() {
   const feed = useMirage((s) => s.feed);
   const view = useMirage((s) => s.view);
   const items = feed.slice(0, 5);
-  if (view === "governance") return null;
+  if (view !== "network") return null;
   return (
     <div className="pointer-events-none absolute bottom-[118px] left-10 z-20 w-[330px]">
       <div className="mb-2 flex items-center gap-2">
