@@ -163,9 +163,28 @@ def session_script(members: np.ndarray, ctx: ScoringContext, m: dict) -> None:
 
 
 def _ref(base: Baseline, key: str) -> float:
-    """Conservative reference: the higher of random groups and real communities."""
-    vals = [v for v in (base.group.get(key), base.community.get(key)) if v is not None and v == v]
-    return max(vals) if vals else 0.0
+    """Reference for thresholds: typical random account groups.
+
+    Detected organic communities are NOT used here: they were grouped for
+    being similar, so their similarity is inflated by selection. They are
+    still quoted in evidence text as context.
+    """
+    v = base.group.get(key)
+    return v if v is not None and v == v else 0.0
+
+
+def remember(s: dict[str, float], prev: dict[str, float] | None, dt_min: float,
+             half_life_min: float = 24 * 60.0) -> dict[str, float]:
+    """Evidence memory: a swarm caught acting in lockstep does not become
+    innocent between campaign waves. Each mechanical family keeps the max of
+    its current strength and its decayed previous strength."""
+    if not prev:
+        return s
+    decay = 0.5 ** (max(0.0, dt_min) / half_life_min)
+    out = dict(s)
+    for fam in WEIGHTS:
+        out[fam] = max(s.get(fam, 0.0), prev.get(fam, 0.0) * decay)
+    return out
 
 
 def strengths(m: dict, base: Baseline) -> dict[str, float]:
