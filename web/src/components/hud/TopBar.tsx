@@ -36,7 +36,8 @@ function AccountCounter() {
   const [flash, setFlash] = useState(false);
   const prev = useRef(n);
   useEffect(() => {
-    if (n - prev.current > 20) {
+    // flash only when accounts pour in, not when the first snapshot arrives
+    if (prev.current > 0 && n - prev.current > 20) {
       setFlash(true);
       const t = setTimeout(() => setFlash(false), 900);
       prev.current = n;
