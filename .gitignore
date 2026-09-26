@@ -1,0 +1,43 @@
+# --- secrets ---
+.env
+.env.local
+*.pem
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# --- node / next ---
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+
+# --- hardhat ---
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+contracts/coverage/
+contracts/coverage.json
+
+# --- runtime data ---
+backend/.cache/
+backend/runs/
+deployments/local.json
+*.log
+
+# --- os / editors ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
