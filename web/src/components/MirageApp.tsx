@@ -41,8 +41,11 @@ export default function MirageApp() {
       <TargetRing />
       <TerrainLegend />
       <TopBar />
-      <AttackerConsole />
-      <Feed />
+      {/* one left column, so the console and the feed can never overlap */}
+      <div className="pointer-events-none absolute bottom-[118px] left-10 top-[132px] z-20 flex w-[330px] flex-col gap-5">
+        <AttackerConsole />
+        <Feed />
+      </div>
       <MetricsStrip />
       <EvidencePanel />
       <GovernanceView />

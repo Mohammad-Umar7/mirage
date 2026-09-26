@@ -11,7 +11,9 @@ export function Feed() {
   const items = feed.slice(0, 5);
   if (view !== "network") return null;
   return (
-    <div className="pointer-events-none absolute bottom-[118px] left-10 z-20 w-[330px]">
+    // sits under the attacker console in the shared left column and gives up
+    // rows (never overlaps) when the window is short
+    <div className="pointer-events-none mt-auto min-h-0 w-[330px] overflow-hidden">
       <div className="mb-2 flex items-center gap-2">
         <span className="h-px w-5 bg-[var(--hair-strong)]" />
         <span className="hud-label !text-[8.5px]">Live feed</span>

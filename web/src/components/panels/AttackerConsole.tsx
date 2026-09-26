@@ -87,7 +87,7 @@ export function AttackerConsole() {
 
   if (view !== "network") return null;
   return (
-    <div className="pointer-events-auto absolute left-10 top-[132px] z-20 w-[300px]">
+    <div className="pointer-events-auto w-[300px] shrink-0">
       <button onClick={() => setOpen((o) => !o)} className="group flex w-full items-center justify-between pb-2">
         <span className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rotate-45 bg-red shadow-[0_0_8px_#FF3B30]" />
