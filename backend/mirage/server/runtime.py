@@ -264,8 +264,15 @@ class Runtime:
 
     def _metrics(self, result: DetectionResult) -> dict:
         m = self.world.metrics.summary(result)
-        return {k: m[k] for k in ("precision", "recall", "f1", "hard_negative_fp", "flagged", "tp", "fp", "fn",
-                                  "detection_latency_min", "pipeline_latency_ms")}
+        out = {k: m[k] for k in ("precision", "recall", "f1", "hard_negative_fp", "flagged", "tp", "fp", "fn",
+                                 "detection_latency_min", "pipeline_latency_ms")}
+        # the operator's own view of each launch: how much of it got caught
+        out["per_swarm"] = [
+            {"swarm": int(sid), "level": s["level"], "size": s["size"], "recall": s["recall"],
+             "latency_min": self.world.metrics.latency_min(sid)}
+            for sid, s in sorted(m["per_swarm"].items())
+        ]
+        return out
 
     def _detection_msg(self, result: DetectionResult) -> dict:
         shown = []

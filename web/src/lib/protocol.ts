@@ -41,7 +41,10 @@ export type Metrics = {
   fn: number;
   detection_latency_min: number | null;
   pipeline_latency_ms: number;
+  per_swarm?: SwarmScore[];
 };
+
+export type SwarmScore = { swarm: number; level: number; size: number; recall: number | null; latency_min: number | null };
 
 export type Tally = { yes: number; no: number };
 
