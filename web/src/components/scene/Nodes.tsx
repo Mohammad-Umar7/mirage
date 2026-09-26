@@ -24,6 +24,7 @@ const PER_NODE = [
 export function Nodes() {
   const gl = useThree((s) => s.gl);
   const pointsRef = useRef<THREE.Points>(null);
+  const redRef = useRef<THREE.Points>(null);
   const seen = useRef({ cap: -1, attr: -1, pos: -1 });
 
   const geometry = useMemo(() => {
@@ -42,6 +43,7 @@ export function Nodes() {
         depthTest: false,
         blending: THREE.AdditiveBlending,
         uniforms: {
+          uPass: { value: 0 },
           uTime: { value: 0 },
           uPixelRatio: { value: 1 },
           uScale: { value: 4.2 },
@@ -60,13 +62,24 @@ export function Nodes() {
     [],
   );
 
+  // second pass for flagged accounts: same geometry and uniforms, normal blending
+  const redMaterial = useMemo(() => {
+    const m = material.clone();
+    // uniform objects are shared, so one update per frame drives both passes
+    m.uniforms = { ...material.uniforms, uPass: { value: 1 } };
+    m.blending = THREE.NormalBlending;
+    return m;
+  }, [material]);
+
   useEffect(() => () => {
     geometry.dispose();
     material.dispose();
-  }, [geometry, material]);
+    redMaterial.dispose();
+  }, [geometry, material, redMaterial]);
 
   useFrame(() => {
     const s = seen.current;
+    if (!geometry.getAttribute("position")) s.cap = -1; // fast refresh safety
     if (s.cap !== scene.capVersion) {
       geometry.setAttribute("position", new THREE.BufferAttribute(scene.positions, 3).setUsage(THREE.DynamicDrawUsage));
       for (const [attr, key] of PER_NODE) {
@@ -93,8 +106,15 @@ export function Nodes() {
     u.uDim.value = view.dim;
     u.uWaveT.value = scene.pulseWave.t;
     (u.uWaveOrigin.value as THREE.Vector3).set(...scene.pulseWave.origin);
-    if (pointsRef.current) pointsRef.current.visible = view.terrainMix < 0.98;
+    const visible = view.terrainMix < 0.98;
+    if (pointsRef.current) pointsRef.current.visible = visible;
+    if (redRef.current) redRef.current.visible = visible;
   });
 
-  return <points ref={pointsRef} geometry={geometry} material={material} frustumCulled={false} renderOrder={2} />;
+  return (
+    <>
+      <points ref={pointsRef} geometry={geometry} material={material} frustumCulled={false} renderOrder={2} />
+      <points ref={redRef} geometry={geometry} material={redMaterial} frustumCulled={false} renderOrder={4} />
+    </>
+  );
 }
