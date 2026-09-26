@@ -29,7 +29,7 @@ export default function MirageApp() {
   }, []);
 
   return (
-    <main className="fixed inset-0 overflow-hidden bg-void select-none">
+    <main className="fixed inset-0 overflow-clip bg-void select-none">
       <Scene />
       <Frame />
       <OrganicLabels />
