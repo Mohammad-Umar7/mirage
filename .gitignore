@@ -44,3 +44,6 @@ Thumbs.db
 
 # local screenshot scratch
 .shots/
+
+# local chain deployment output
+deployments/
