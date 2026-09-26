@@ -43,7 +43,7 @@ function pick(x: number, y: number, camera: THREE.Camera, w: number, h: number):
 
 export function CameraRig() {
   const controls = useRef<OrbitControlsImpl>(null);
-  const { camera, gl, size } = useThree();
+  const { camera, gl } = useThree();
   const idleAt = useRef(0);
 
   useEffect(() => {

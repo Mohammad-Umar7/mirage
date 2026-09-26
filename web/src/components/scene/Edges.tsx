@@ -13,7 +13,6 @@ import { edgeFragment, edgeVertex } from "./shaders";
 
 const GOLD = new THREE.Color(palette.gold);
 const GOLD_SOFT = new THREE.Color(palette.goldSoft);
-const RED = new THREE.Color(palette.red);
 const FADE_NEAR = 12;
 const FADE_FAR = 42;
 const RED_NEAR = 14;
