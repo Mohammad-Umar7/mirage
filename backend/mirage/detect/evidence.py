@@ -32,8 +32,17 @@ def build_evidence(verdict: str, m: dict, s: dict[str, float], base: Baseline, n
 
 
 def _ref(base: Baseline, key: str) -> tuple[float, str]:
-    val, label = base.reference(key)
-    return val, label
+    """Reference quoted in evidence text.
+
+    Timing is compared with the real communities the detector found (they
+    are the fair comparison: real groups, human clocks). Similarity families
+    are compared with typical accounts, because found communities were
+    grouped *for* being similar and would flatter the comparison.
+    """
+    if key == "sync":
+        return base.reference(key)
+    val = base.group.get(key)
+    return (val, "typical accounts") if val is not None else base.reference(key)
 
 
 def _swarm(m: dict, s: dict[str, float], base: Baseline, net: NetworkState) -> list[Evidence]:
