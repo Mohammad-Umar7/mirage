@@ -244,18 +244,20 @@ class SceneData {
     }
     if (!cnt) return;
     x /= cnt; y /= cnt; z /= cnt;
-    let r2 = 0;
-    const step = Math.max(1, Math.floor(m.length / 400));
-    let samples = 0;
+    // robust radius: 75th percentile distance, so stragglers still gliding in
+    // do not inflate rings and halos
+    const step = Math.max(1, Math.floor(m.length / 300));
+    const dist: number[] = [];
     for (let k = 0; k < m.length; k += step) {
       const i = m[k];
       if (i >= this.n) continue;
       const dx = P[i * 3] - x, dy = P[i * 3 + 1] - y, dz = P[i * 3 + 2] - z;
-      r2 += dx * dx + dy * dy + dz * dz;
-      samples++;
+      dist.push(Math.sqrt(dx * dx + dy * dy + dz * dz));
     }
+    dist.sort((a, b) => a - b);
+    const q = dist.length ? dist[Math.min(dist.length - 1, Math.floor(dist.length * 0.75))] : 8;
     c.centroid = [x, y, z];
-    c.radius = Math.sqrt(r2 / Math.max(1, samples)) * 1.35 + 2;
+    c.radius = Math.min(q * 1.15 + 2, 90);
   }
 }
 
