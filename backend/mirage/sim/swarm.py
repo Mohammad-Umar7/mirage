@@ -174,6 +174,15 @@ class SwarmOperator:
         self.human[idx] = sample_style(rng)
         self.agents.append(idx)
         self._fund_agent(idx, created)
+        if spec.background == "independent":
+            # A near-independent identity has an ordinary history, like any
+            # real account: it started following people soon after signing up.
+            for _ in range(int(rng.integers(3, 9))):
+                t_hist = created + float(rng.exponential(2 * DAY))
+                if t_hist < self.t_launch:
+                    target = sim.pick_follow_target(idx, rng)
+                    if target is not None:
+                        sim.follow(idx, t_hist, target)
         if spec.fund_mode in ("direct", "fanout", "tree") and self.agents[0] != idx:
             sim.schedule(created + float(rng.uniform(0.5, 3.0)), sim.follow_action, idx, self.proposer)
         return idx
