@@ -153,7 +153,9 @@ def _account_behavior(store: FeatureStore, a: int, cutoff: float, min_events: in
     profile = ngram_profile(acts) if len(acts) >= min_events else None
     keys: list[int] = []
     for t, code, obj in store.coacts[a]:
-        if t < cutoff:
+        # Votes are judged by the dedicated lockstep family; using them here
+        # too would count one coincidence twice.
+        if t < cutoff or code == CO_VOTE:
             continue
         earliest = min(earliest, t)
         width = 120.0 if code == CO_VOTE else 60.0
