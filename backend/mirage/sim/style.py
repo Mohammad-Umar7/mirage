@@ -177,6 +177,19 @@ def sample_generator_style(rng: np.random.Generator) -> GeneratorStyle:
     )
 
 
+IMPERATIVE = {"vote", "support", "back", "say", "please", "agreed", "fully", "exactly", "well", "couldn't",
+              "100%", "count"}
+LOWERABLE = {"the", "a", "an", "this", "that", "there", "it", "we", "our", "voting", "moving", "fresh",
+             "watching", "strong", "completely", "well", "i'll"}
+
+
+def _join_tic(tic: str, sentence: str) -> str:
+    first = sentence.split(" ", 1)[0].lower()
+    if first in LOWERABLE:
+        sentence = sentence[:1].lower() + sentence[1:]
+    return f"{tic} {sentence}"
+
+
 def render_generated(sentences: list[str], gen: GeneratorStyle, rng: np.random.Generator,
                      noise: StyleProfile | None = None, noise_level: float = 0.0) -> str:
     """Polished, well-formed text with the generator's tics.
@@ -188,8 +201,10 @@ def render_generated(sentences: list[str], gen: GeneratorStyle, rng: np.random.G
     for i, s in enumerate(sentences):
         s = s.strip()
         if i == 0 and rng.random() < gen.tic_rate:
-            tic = str(rng.choice(gen.tics))
-            s = f"{tic} {s[:1].lower() + s[1:]}"
+            tics = gen.tics
+            if s.split(" ", 1)[0].lower() in IMPERATIVE:
+                tics = tuple(t for t in gen.tics if t.endswith(":")) or ("Simply put:",)
+            s = _join_tic(str(rng.choice(tics)), s)
         s = s[:1].upper() + s[1:]
         end = "!" if rng.random() < gen.exclaim_rate else "."
         parts.append(s + end)
