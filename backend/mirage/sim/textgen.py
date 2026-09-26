@@ -12,6 +12,10 @@ import numpy as np
 from .style import GeneratorStyle, StyleProfile, render_generated, render_real
 from .topics import OPINIONS, TIMEFRAMES, TOPICS, Topic
 
+# Share of a level-4 agent's posts that get a sampled human style on top of
+# the operator's generator. Enough to blur the fingerprint, not erase it.
+L4_NOISE = 0.35
+
 GENERIC = (
     "{E} {V} {N}",
     "the {N} situation is {A}",
@@ -278,7 +282,7 @@ class TextFactory:
         sentences = [first, str(rng.choice(SUPPORT))]
         if rng.random() < 0.4:
             sentences.append(_fill(str(rng.choice(TIE_INS)), topic, rng))
-        noise = 0.5 if level == 4 else 0.0
+        noise = L4_NOISE if level == 4 else 0.0
         return render_generated(sentences, gen, rng, noise=human, noise_level=noise)
 
     def campaign_reply(self, level: int, gen: GeneratorStyle, pid: int, rng: np.random.Generator,
@@ -292,7 +296,7 @@ class TextFactory:
             topic = TOPICS["governance"]
             return render_real([str(rng.choice(L5_CAMPAIGN)).replace("{P}", str(pid))], human, topic, rng)
         sentences = [str(rng.choice(GEN_REPLY)), f"Voting YES on #{pid}"]
-        noise = 0.5 if level == 4 else 0.0
+        noise = L4_NOISE if level == 4 else 0.0
         return render_generated(sentences, gen, rng, noise=human, noise_level=noise)
 
     def persona_post(self, level: int, gen: GeneratorStyle, topic_key: str, rng: np.random.Generator,
@@ -303,16 +307,16 @@ class TextFactory:
         if cached and rng.random() < 0.5:
             text = str(rng.choice(cached))
             return render_generated([text.rstrip(".!")], gen, rng, noise=human,
-                                    noise_level=0.5 if level == 4 else 0.0)
+                                    noise_level=L4_NOISE if level == 4 else 0.0)
         sentences = [_fill(str(rng.choice(GEN_TOPIC)), topic, rng)]
         if rng.random() < 0.6:
             sentences.append(_fill(str(rng.choice(GEN_TOPIC)), topic, rng))
-        noise = 0.5 if level == 4 else 0.0
+        noise = L4_NOISE if level == 4 else 0.0
         return render_generated(sentences, gen, rng, noise=human, noise_level=noise)
 
     def persona_reply(self, level: int, gen: GeneratorStyle, topic_key: str, rng: np.random.Generator,
                       human: StyleProfile | None = None) -> str:
         topic = TOPICS[topic_key]
         sentences = [str(rng.choice(GEN_REPLY)), _fill(str(rng.choice(GEN_TOPIC)), topic, rng)]
-        noise = 0.5 if level == 4 else 0.0
+        noise = L4_NOISE if level == 4 else 0.0
         return render_generated(sentences, gen, rng, noise=human, noise_level=noise)

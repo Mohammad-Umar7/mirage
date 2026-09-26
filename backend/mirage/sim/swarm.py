@@ -59,7 +59,7 @@ LEVELS: dict[int, LevelSpec] = {
     3: LevelSpec(3, "Smart", "Multi-hop funding, persona-diverse LLM text, fake circadian rhythms",
                  240, None, "tree", 3, 300, 6.0, 22.0, 0.85, "templates", 0.9, (1.0, 4.0), "wave", 0, 1.2),
     4: LevelSpec(4, "Advanced", "Aged sleeper accounts, real-user timing, mimicked topic mixes",
-                 0, (30.0, 45.0), "exchange_burst", 2, 300, 12.0, 90.0, 0.6, "mimic", 0.65, (2.0, 10.0),
+                 0, (30.0, 45.0), "exchange_burst", 2, 300, 12.0, 90.0, 0.6, "mimic", 0.85, (2.0, 10.0),
                  "spread", 8.0, 9.0),
     5: LevelSpec(5, "Near-independent", "Separate budgets, separate generators, no shared triggers",
                  0, (20.0, 300.0), "independent", 0, 0, None, 0.0, 0.0, "independent", 0.0, (0.0, 0.0),
