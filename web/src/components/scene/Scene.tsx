@@ -5,6 +5,7 @@ import { Canvas } from "@react-three/fiber";
 import { useState } from "react";
 import { palette } from "@/lib/palette";
 import { CameraRig } from "./CameraRig";
+import { ClusterGlow } from "./ClusterGlow";
 import { Edges } from "./Edges";
 import { Effects } from "./Effects";
 import { Halos } from "./Halos";
@@ -27,6 +28,7 @@ export default function Scene() {
       <color attach="background" args={[palette.void]} />
       <PerformanceMonitor onDecline={() => setDpr((d) => Math.max(1, d - 0.25))} onIncline={() => setDpr((d) => Math.min(1.75, d + 0.25))} />
       <ViewDirector />
+      <ClusterGlow />
       <Edges />
       <Nodes />
       <Halos />
