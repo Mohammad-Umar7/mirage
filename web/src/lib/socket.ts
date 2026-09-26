@@ -4,6 +4,7 @@ import { decodeClusters, unpackF32, unpackI32, unpackU8, type ServerMsg } from "
 import { scene } from "./sceneData";
 import { useMirage } from "./store";
 import { layout } from "./layoutClient";
+import { kickAberration } from "./viewState";
 
 const LOCK_CONFIDENCE = 0.85;
 
@@ -129,6 +130,7 @@ class MirageSocket {
           st.fire({ kind: "lock", data: locked });
           const c = scene.clusters.find((x) => x.id === locked);
           if (c) scene.pulseWave = { t: performance.now() / 1000, origin: c.centroid };
+          kickAberration(1.4);
         }
         st.set({
           detection: { ...rest, clusters }, metrics: msg.metrics, lockedCluster: locked ?? (top ? st.lockedCluster : null),

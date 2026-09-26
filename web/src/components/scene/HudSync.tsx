@@ -16,6 +16,9 @@ export function HudSync() {
   const frame = useRef(0);
   useFrame(({ camera, size }) => {
     frame.current++;
+    if (process.env.NODE_ENV !== "production" && frame.current === 1) {
+      (window as unknown as Record<string, unknown>).__mirageCamera = camera;
+    }
     view.width = size.width;
     view.height = size.height;
     const out: ScreenCluster[] = [];
