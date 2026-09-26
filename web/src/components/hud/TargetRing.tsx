@@ -27,7 +27,7 @@ function Bracket({ x, y, sx, sy, color }: { x: number; y: number; sx: number; sy
       d={`M ${x + sx * L} ${y} L ${x} ${y} L ${x} ${y + sy * L}`}
       fill="none"
       stroke={color}
-      strokeWidth={1.6}
+      strokeWidth={2.4}
       strokeLinecap="square"
     />
   );
@@ -113,7 +113,7 @@ export function TargetRing() {
         return;
       }
       const vw = window.innerWidth, vh = window.innerHeight;
-      const R = Math.max(62, Math.min(s.r * 1.3, Math.min(vw, vh) * 0.33));
+      const R = Math.max(118, Math.min(s.r * 2.1 + 30, Math.min(vw, vh) * 0.36));
       el.style.opacity = "1";
       el.style.transform = `translate3d(${s.x}px, ${s.y}px, 0)`;
       if (ringBox.current) {
@@ -159,7 +159,11 @@ export function TargetRing() {
             <line ref={leader} stroke={faint} strokeWidth={1} />
           </svg>
           <div ref={ringBox} className="absolute left-0 top-0">
-            <svg viewBox="-110 -110 220 220" className="h-full w-full overflow-visible">
+            <svg
+              viewBox="-110 -110 220 220"
+              className="h-full w-full overflow-visible"
+              style={{ filter: `drop-shadow(0 0 3px ${locked ? "rgba(255,59,48,0.9)" : "rgba(255,159,28,0.8)"})` }}
+            >
               <defs>
                 <radialGradient id="ringGlow">
                   <stop offset="60%" stopColor={color} stopOpacity="0" />
@@ -168,11 +172,11 @@ export function TargetRing() {
               </defs>
               <circle r="100" fill="url(#ringGlow)" />
               <g style={{ animation: "spin 48s linear infinite", transformOrigin: "0 0" }}>
-                <circle r="92" fill="none" stroke={faint} strokeWidth={0.6} />
+                <circle r="92" fill="none" stroke={faint} strokeWidth={0.9} />
                 <Ticks r={92} count={72} major={6} len={3} majorLen={7} color={faint} />
               </g>
               <g style={{ animation: "spin-rev 26s linear infinite", transformOrigin: "0 0" }}>
-                <circle r="80" fill="none" stroke={color} strokeOpacity={0.55} strokeWidth={0.8} strokeDasharray="1.5 5.5" />
+                <circle r="80" fill="none" stroke={color} strokeOpacity={0.7} strokeWidth={1.2} strokeDasharray="1.5 5.5" />
               </g>
               {[0, 1, 2, 3].map((q) => (
                 <path
@@ -180,8 +184,8 @@ export function TargetRing() {
                   d={describeArc(0, 0, 66, q * 90 + 10, q * 90 + 80)}
                   fill="none"
                   stroke={color}
-                  strokeOpacity={0.7}
-                  strokeWidth={1}
+                  strokeOpacity={0.85}
+                  strokeWidth={1.5}
                 />
               ))}
               {[0, 90, 180, 270].map((a) => (
