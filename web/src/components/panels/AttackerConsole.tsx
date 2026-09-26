@@ -177,8 +177,8 @@ export function AttackerConsole() {
               <div className="mt-2">
                 <CostMeter cost={cost} />
               </div>
-              <div className="mt-2 flex justify-between hud-label !text-[8px]">
-                <span className="!text-[var(--ink-faint)]">modeled estimate · see README</span>
+              <div className="mt-2 flex justify-between gap-2 whitespace-nowrap hud-label !text-[8px]">
+                <span className="!text-[var(--ink-faint)]">modeled · see README</span>
                 <span>
                   total <span className="hud-value !text-[10px] text-ink">{usd(cost * size)}</span>
                 </span>
