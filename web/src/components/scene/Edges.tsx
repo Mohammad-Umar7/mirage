@@ -16,8 +16,9 @@ const GOLD_SOFT = new THREE.Color(palette.goldSoft);
 const RED = new THREE.Color(palette.red);
 const FADE_NEAR = 12;
 const FADE_FAR = 42;
-const RED_NEAR = 40;
-const RED_FAR = 85;
+const RED_NEAR = 14;
+const RED_FAR = 34;
+const MAX_RED = 560;
 
 type Plan = {
   gold: Int32Array; // pairs (i, j) flattened
@@ -32,6 +33,17 @@ type Plan = {
 function plan(): Plan {
   const { i, j, w } = scene.edges;
   const verdict = new Map(scene.clusters.map((c) => [c.id, c]));
+  // count eligible red edges first so the web is sampled uniformly across the
+  // whole cluster (taking the first N would only draw one side of it)
+  let eligible = 0;
+  for (let e = 0; e < i.length; e++) {
+    const ca = scene.clusterOf[i[e]];
+    if (ca >= 0 && ca === scene.clusterOf[j[e]]) {
+      const c = verdict.get(ca);
+      if (c && c.verdict === "SWARM" && c.confidence >= 0.55) eligible++;
+    }
+  }
+  const keep = eligible > 0 ? Math.min(1, MAX_RED / eligible) : 1;
   const gold: number[] = [];
   const red: number[] = [];
   const appear: number[] = [];
@@ -43,8 +55,10 @@ function plan(): Plan {
     const ca = scene.clusterOf[a];
     const c = ca >= 0 && ca === scene.clusterOf[b] ? verdict.get(ca) : undefined;
     if (c && c.verdict === "SWARM" && c.confidence >= 0.55) {
-      red.push(a, b);
-      appear.push(c.firstSeen + 0.4 + Math.random() * 1.1);
+      if (Math.random() < keep) {
+        red.push(a, b);
+        appear.push(c.firstSeen + 0.4 + Math.random() * 1.1);
+      }
     } else {
       gold.push(a, b);
       const organic = c && c.verdict === "ORGANIC COMMUNITY";
@@ -92,14 +106,16 @@ export function Edges() {
   const redMat = useMemo(() => {
     const m = new LineMaterial({
       color: 0xffffff,
-      linewidth: 1.7,
+      linewidth: 1.1,
       vertexColors: true,
       transparent: true,
       depthWrite: false,
       depthTest: false,
       worldUnits: false,
     });
-    m.blending = THREE.AdditiveBlending;
+    // alpha, not additive: thousands of red lines through a dense core would
+    // otherwise sum their green channel into a yellow-white blob
+    m.blending = THREE.NormalBlending;
     return m;
   }, []);
   const redLines = useMemo(() => {
@@ -191,12 +207,12 @@ export function Edges() {
         const dx = arr[o + 3] - arr[o], dy = arr[o + 4] - arr[o + 1], dz = arr[o + 5] - arr[o + 2];
         const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
         const f = flare * Math.min(1, Math.max(0, (RED_FAR - len) / (RED_FAR - RED_NEAR)));
-        const r = RED.r * 0.95 * f, g = RED.g * 0.95 * f + 0.05 * f, bl = RED.b * 0.9 * f;
+        const r = 1.0 * f, g = 0.17 * f, bl = 0.13 * f;
         carr[o] = r; carr[o + 1] = g; carr[o + 2] = bl;
         carr[o + 3] = r; carr[o + 4] = g; carr[o + 5] = bl;
       }
       colors.needsUpdate = true;
-      redMat.opacity = 0.55 * view.dim * (1 - view.terrainMix);
+      redMat.opacity = 0.26 * view.dim * (1 - view.terrainMix);
       redLines.visible = view.terrainMix < 0.98;
     }
   });
