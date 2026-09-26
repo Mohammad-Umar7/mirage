@@ -7,20 +7,25 @@ import { useRef } from "react";
 import * as THREE from "three";
 import { view } from "@/lib/viewState";
 
-const offset = new THREE.Vector2(0.0004, 0.0004);
+const offset = new THREE.Vector2(0, 0);
 
 export function Effects() {
   const ca = useRef<ChromaticAberrationEffect>(null);
   useFrame((_, dt) => {
+    // aberration only during transitions (lock-on, view changes), never at rest:
+    // a constant offset splits tiny bright points into green-centred fringes
     view.aberration *= Math.exp(-dt * 2.6);
-    const k = 0.00035 + view.aberration * 0.0045;
-    ca.current?.offset.set(k, k * 0.6);
+    if (view.aberration < 0.01) view.aberration = 0;
+    const k = view.aberration * 0.0032;
+    ca.current?.offset.set(k, k * 0.55);
   });
   return (
     <EffectComposer multisampling={0} enableNormalPass={false}>
       <Bloom mipmapBlur intensity={1.35} luminanceThreshold={0.12} luminanceSmoothing={0.35} radius={0.82} />
       <ChromaticAberration ref={ca} offset={offset} radialModulation modulationOffset={0.35} />
-      <Noise premultiply opacity={0.9} blendFunction={BlendFunction.SOFT_LIGHT} />
+      {/* additive grain: soft-light/premultiplied blends evaluate branches that overflow to
+          inf on the HDR swarm core and turn it into NaN (blue/green garbage) */}
+      <Noise opacity={0.045} blendFunction={BlendFunction.ADD} />
       <Vignette eskil={false} offset={0.22} darkness={0.78} />
     </EffectComposer>
   );
