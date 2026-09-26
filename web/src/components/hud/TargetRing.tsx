@@ -118,7 +118,10 @@ export function TargetRing() {
         return;
       }
       const vw = window.innerWidth, vh = window.innerHeight;
-      const R = Math.max(118, Math.min(s.r * 2.1 + 30, Math.min(vw, vh) * 0.36));
+      // stay between the top bar and the metrics strip on short windows too
+      // (the label sits 1.05 R above the centre)
+      const room = Math.min((s.y - 126) / 1.05, vh - 125 - s.y);
+      const R = Math.max(118, Math.min(s.r * 2.1 + 30, Math.min(vw, vh) * 0.36, room));
       el.style.opacity = "1";
       el.style.transform = `translate3d(${s.x}px, ${s.y}px, 0)`;
       if (ringBox.current) {
