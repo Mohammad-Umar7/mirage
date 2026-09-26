@@ -166,16 +166,20 @@ def min_window(times: np.ndarray, frac: float = 0.9) -> float:
     return float(spans.min())
 
 
-def mean_pairwise_cosine(unit_rows: np.ndarray) -> float:
-    """Mean cosine over all distinct pairs of unit vectors in O(n*d).
+def mean_pairwise_cosine(rows: np.ndarray) -> float:
+    """Mean dot product over all distinct pairs of rows in O(n*d).
 
-    For unit vectors u_i: sum_{i!=j} u_i.u_j = |sum u|^2 - n.
+    sum_{i!=j} u_i.u_j = |sum u|^2 - sum |u_i|^2. For unit vectors this is
+    the mean pairwise cosine; for vectors projected onto a subspace (norm
+    <= 1) it is the projected, conservatively shrunk, cosine.
     """
-    n = len(unit_rows)
+    n = len(rows)
     if n < 2:
         return float("nan")
-    s = unit_rows.sum(axis=0, dtype=np.float64)
-    return float((s @ s - n) / (n * (n - 1)))
+    rows64 = rows.astype(np.float64, copy=False)
+    s = rows64.sum(axis=0)
+    sq = float(np.einsum("ij,ij->", rows64, rows64))
+    return float((s @ s - sq) / (n * (n - 1)))
 
 
 def l2_normalize(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
