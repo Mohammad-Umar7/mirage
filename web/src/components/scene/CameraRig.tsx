@@ -123,7 +123,7 @@ export function CameraRig() {
       const cl = focusId !== null ? scene.clusters.find((x) => x.id === focusId) : undefined;
       if (cl) {
         view.focusTarget.set(...cl.centroid);
-        view.focusDistance = THREE.MathUtils.clamp(cl.radius * 6.5, 95, 230);
+        view.focusDistance = THREE.MathUtils.clamp(cl.radius * 5.5, 175, 300);
       } else if (performance.now() > idleAt.current + 4000) {
         view.focusTarget.lerp(HOME_TARGET, k);
         view.focusDistance += (330 - view.focusDistance) * k;
