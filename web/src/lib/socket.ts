@@ -100,7 +100,7 @@ class MirageSocket {
           terrain: msg.terrain, launches: msg.launches, levels: msg.levels, chain: msg.chain,
           detection: msg.detection && clusters ? { ...rest, clusters } : null,
           metrics: msg.detection?.metrics ?? null, feed: [], evidence: null, evidenceFor: null,
-          selected: null, lockedCluster: null,
+          selected: null, lockedCluster: null, lockIgnore: [],
         });
         break;
       }
@@ -124,7 +124,7 @@ class MirageSocket {
         scene.applyDetection(msg, clusters);
         layout.graph();
         const { clusters: _c, edges: _e, type: _t, ...rest } = msg;
-        const top = clusters.find((c) => c.verdict === "SWARM");
+        const top = clusters.find((c) => c.verdict === "SWARM" && !st.lockIgnore.includes(c.id));
         const locked = top && top.confidence >= LOCK_CONFIDENCE ? top.id : null;
         if (locked !== null && st.lockedCluster === null) {
           st.fire({ kind: "lock", data: locked });
@@ -145,10 +145,20 @@ class MirageSocket {
       case "evidence":
         st.set({ evidence: msg, evidenceFor: msg.cluster.id });
         break;
-      case "launched":
-        st.set({ launches: [...st.launches, msg] });
+      case "launched": {
+        // release the current target so the camera pulls back and the next
+        // acquisition is about the swarm that was just launched
+        const known = (st.detection?.clusters ?? []).filter((c) => c.verdict === "SWARM").map((c) => c.id);
+        const released = st.lockedCluster;
+        st.set({
+          launches: [...st.launches, msg],
+          lockIgnore: [...new Set([...st.lockIgnore, ...known])],
+          lockedCluster: null,
+          selected: released !== null && st.selected === released ? null : st.selected,
+        });
         st.fire({ kind: "launch", data: msg });
         break;
+      }
       case "speed":
         st.set({ rate: msg.rate });
         break;
