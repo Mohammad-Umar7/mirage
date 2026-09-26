@@ -47,3 +47,6 @@ Thumbs.db
 
 # local chain deployment output
 deployments/
+
+# launch video output (rendered media, work files)
+brag-output*/
