@@ -94,6 +94,7 @@ class ChainBridge:
         self.block: int | None = None
         self.mode = deployment.get("mode", "one")
         self.world = 0
+        self.session = int(time.time()) % 1_000_000
         self._registered = 0
         self._created: set[int] = set()
         self._vote_cursor = 0
@@ -117,9 +118,13 @@ class ChainBridge:
         self._stop.set()
 
     # ---------------------------------------------------------- runtime API
+    def pid_base(self) -> int:
+        """On-chain proposal ids are namespaced per process session and per
+        world, so neither a reset nor a backend restart collides with old votes."""
+        return (self.session * 1000 + self.world) * 1000
+
     def chain_pid(self, pid: int) -> int:
-        """Proposal ids are namespaced per world so a reset never collides."""
-        return self.world * 1000 + pid
+        return self.pid_base() + pid
 
     def on_reset(self, world: int) -> None:
         # the vote cursor is owned by the runtime thread (on_tick), so reset it here
@@ -163,6 +168,7 @@ class ChainBridge:
             "connected": self.connected, "rpc": self.rpc, "chain_id": self.chain_id, "address": self.address,
             "oracle": self.oracle_key.public_key.to_checksum_address(), "block": self.block, "mode": self.mode,
             "txs": list(self.txs), "onchain": self.onchain, "error": self.error, "world": self.world,
+            "pid_base": self.pid_base(),
         }
 
     # ------------------------------------------------------------- worker

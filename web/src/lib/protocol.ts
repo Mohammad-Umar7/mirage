@@ -131,6 +131,8 @@ export type ChainInfo = {
   txs: ChainTx[];
   onchain: Record<string, { naive: Tally; weighted: Tally; epoch: number }>;
   error?: string | null;
+  world?: number;
+  pid_base?: number;
 };
 
 export type SnapshotMsg = {

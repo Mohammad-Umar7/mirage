@@ -42,14 +42,14 @@ export function useOnchainTally(pid: number | null, active: boolean): OnchainRea
   const [read, setRead] = useState<OnchainRead | null>(null);
   const address = chain?.address as `0x${string}` | undefined;
   const rpc = chain?.rpc;
-  const world = (chain as unknown as { world?: number } | null)?.world ?? 0;
+  const base = chain?.pid_base ?? (chain?.world ?? 0) * 1000;
   const connected = !!chain?.connected;
 
   useEffect(() => {
     if (!active || pid === null || !address || !rpc || !connected) return;
     let stop = false;
     const c = getClient(rpc);
-    const id = BigInt(world * 1000 + pid);
+    const id = BigInt(base + pid);
     const poll = async () => {
       try {
         const [[ny, nn], [wy, wn], epoch, block, registered] = await Promise.all([
@@ -79,7 +79,7 @@ export function useOnchainTally(pid: number | null, active: boolean): OnchainRea
       stop = true;
       clearInterval(t);
     };
-  }, [active, pid, address, rpc, world, connected]);
+  }, [active, pid, address, rpc, base, connected]);
 
   return read;
 }
