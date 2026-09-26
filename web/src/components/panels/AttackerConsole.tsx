@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { int, usd } from "@/lib/format";
 import { LEVEL_COLORS } from "@/lib/palette";
+import type { Launch, SwarmScore } from "@/lib/protocol";
 import { commands } from "@/lib/socket";
 import { useMirage } from "@/lib/store";
 
@@ -39,9 +40,42 @@ function CostMeter({ cost }: { cost: number }) {
   );
 }
 
+// The operator knows which accounts are theirs, so the console can show how
+// much of each launch the detector has caught (the detector never sees this).
+function LaunchRow({ launch: l, score }: { launch: Launch; score?: SwarmScore }) {
+  const caught = score?.recall ?? null;
+  const pct = caught === null ? null : Math.round(caught * 100);
+  const hot = caught !== null && caught >= 0.5;
+  return (
+    <div>
+      <div className="flex justify-between hud-value text-[10px] text-[var(--ink-dim)]">
+        <span>
+          <span style={{ color: LEVEL_COLORS[l.level - 1] }}>L{l.level}</span> · {int(l.size)} agents
+        </span>
+        <span className="text-[var(--ink-faint)]">{l.clock}</span>
+      </div>
+      <div className="mt-1.5 flex items-center gap-2">
+        <div className="relative h-[3px] flex-1 overflow-hidden bg-[rgba(243,233,216,0.07)]">
+          <motion.div
+            className="absolute inset-y-0 left-0"
+            initial={false}
+            animate={{ width: `${pct ?? 0}%` }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            style={{ background: hot ? "#FF3B30" : "#F5B94A", boxShadow: hot ? "0 0 8px rgba(255,59,48,0.8)" : "none" }}
+          />
+        </div>
+        <span className={`w-[78px] text-right hud-label !text-[8px] ${hot ? "!text-red-glow" : "!text-gold-soft"}`}>
+          {pct === null ? "scoring…" : `${pct}% flagged`}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function AttackerConsole() {
   const levels = useMirage((s) => s.levels);
   const launches = useMirage((s) => s.launches);
+  const perSwarm = useMirage((s) => s.metrics?.per_swarm);
   const demo = useMirage((s) => s.demo.active);
   const view = useMirage((s) => s.view);
   const [x, setX] = useState(toX(1000));
@@ -169,14 +203,9 @@ export function AttackerConsole() {
               </div>
 
               {launches.length > 0 && (
-                <div className="mt-4 space-y-1 border-t border-[rgba(255,107,91,0.18)] pt-3">
+                <div className="mt-4 space-y-2.5 border-t border-[rgba(255,107,91,0.18)] pt-3">
                   {launches.slice(-3).map((l) => (
-                    <div key={l.swarm} className="flex justify-between hud-value text-[10px] text-[var(--ink-dim)]">
-                      <span>
-                        <span style={{ color: LEVEL_COLORS[l.level - 1] }}>L{l.level}</span> · {int(l.size)} agents
-                      </span>
-                      <span>{l.clock}</span>
-                    </div>
+                    <LaunchRow key={l.swarm} launch={l} score={perSwarm?.find((p) => p.swarm === l.swarm)} />
                   ))}
                 </div>
               )}
