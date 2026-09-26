@@ -46,7 +46,7 @@ export function ActivityTimeline({ data, swarm }: { data: EvidenceDetail["timeli
 type TreeNode = EvidenceDetail["funding"]["nodes"][number] & { x: number; y: number };
 
 export function FundingTree({ data, swarm }: { data: EvidenceDetail["funding"]; swarm: boolean }) {
-  const W = 392, H = 176;
+  const W = 392, H = 188;
   const layout = useMemo(() => {
     const nodes = new Map<number, TreeNode>();
     const maxDepth = Math.max(1, data.max_depth);
@@ -95,7 +95,7 @@ export function FundingTree({ data, swarm }: { data: EvidenceDetail["funding"]; 
           />
         );
       })}
-      {[...layout.values()].map((n) => {
+      {[...layout.values()].map((n, idx) => {
         const root = n.kind === "root";
         const hub = n.kind === "hub";
         const r = n.kind === "account" ? 2.2 : root ? 5.5 : hub ? 5 : 3;
@@ -106,8 +106,15 @@ export function FundingTree({ data, swarm }: { data: EvidenceDetail["funding"]; 
             {(root || hub) && <circle cx={n.x} cy={n.y} r={r + 5} fill="none" stroke={fill} strokeOpacity={0.35} />}
             <circle cx={n.x} cy={n.y} r={r} fill={fill} style={{ filter: root ? `drop-shadow(0 0 6px ${fill})` : undefined }} />
             {(root || hub) && (
-              <text x={n.x} y={n.y - r - 8} textAnchor="middle" fontSize={7.5} fill="rgba(243,233,216,0.75)" className="hud-value">
-                {n.label}
+              <text
+                x={n.x}
+                y={idx % 2 === 0 ? n.y - r - 8 : n.y + r + 13}
+                textAnchor="middle"
+                fontSize={7}
+                fill="rgba(243,233,216,0.75)"
+                className="hud-value"
+              >
+                {n.label.length > 11 ? `${n.label.slice(0, 6)}…` : n.label}
               </text>
             )}
           </motion.g>
