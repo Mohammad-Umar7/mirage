@@ -54,7 +54,8 @@ export const nodeVertex = /* glsl */ `
     if (waveAge > 0.0 && waveAge < 3.2) {
       float r = waveAge * 175.0;
       float d = distance(p, uWaveOrigin);
-      wave = exp(-pow((d - r) / 16.0, 2.0)) * (1.0 - waveAge / 3.2);
+      float q = (d - r) / 16.0;
+      wave = exp(-q * q) * (1.0 - waveAge / 3.2);
     }
     vWave = wave;
 
@@ -62,8 +63,8 @@ export const nodeVertex = /* glsl */ `
     float coc = clamp(abs(depth - uFocus) * uAperture, 0.0, 7.0);
     vCoc = coc;
 
-    float base = aSize * (1.0 + vThreat * 0.85 + vOrganic * 0.35) * (1.0 + vPulse * 0.8 + wave * 1.8);
-    float px = base * uScale * (320.0 / depth);
+    float base = aSize * (1.0 + vThreat * 0.3 + vOrganic * 0.25) * (1.0 + vPulse * 0.8 + wave * 1.8);
+    float px = base * uScale * min(320.0 / depth, 2.6);
     px += coc * 1.6;
     px *= born;
     vPx = px;
@@ -80,6 +81,7 @@ export const nodeFragment = /* glsl */ `
   uniform vec3 uRed;
   uniform vec3 uRedGlow;
   uniform float uIconPx;
+  uniform float uPass; // 0 = additive pass (gold), 1 = alpha-blended pass (flagged red)
 
   varying float vThreat;
   varying float vOrganic;
@@ -117,8 +119,11 @@ export const nodeFragment = /* glsl */ `
     float body = (1.0 - smoothstep(0.0, 0.026, bodyD)) * step(-0.215, uv.y) * step(d, 0.4);
     float glyph = max(head, body);
 
-    float glowA = halo * 0.5 + spark * 0.95;
-    vec3 c = glow * halo * 0.55 + col * spark * 1.25;
+    // flagged accounts pack densely: thinner halos keep the cluster readable
+    // as individual red points (bloom supplies the collective glow)
+    float haloK = 1.0 - 0.55 * threat;
+    float glowA = halo * 0.5 * haloK + spark * 0.95;
+    vec3 c = glow * halo * 0.55 * haloK + col * spark * 1.25;
     vec3 iconCol = col * (ring * 1.35 + glyph * 1.2) + glow * halo * 0.22;
     float iconA = clamp(ring * 0.95 + glyph * 0.9 + halo * 0.22, 0.0, 1.0);
     c = mix(c, iconCol, icon);
@@ -126,10 +131,22 @@ export const nodeFragment = /* glsl */ `
 
     // activity flashes and the shockwave
     c += glow * (vPulse * 0.9 + vWave * 1.6) * spark;
-    // swarm cores burn hotter so bloom catches them
-    c *= 1.0 + threat * 0.9;
 
-    gl_FragColor = vec4(c, a * vAlpha);
+    // Flagged accounts move to an alpha-blended pass: additive blending of a
+    // dense cluster always saturates to white, alpha blending stays red while
+    // HDR values still feed the bloom.
+    float redW = smoothstep(0.3, 0.72, threat);
+    if (uPass < 0.5) {
+      float w = 1.0 - redW;
+      if (w < 0.004) discard;
+      gl_FragColor = vec4(c, a * vAlpha * w);
+    } else {
+      if (redW < 0.004) discard;
+      float shape = mix(clamp(spark * 1.15 + halo * 0.28, 0.0, 1.0), iconA, icon);
+      vec3 hot = mix(uRedGlow * 0.75, uRed * 1.45, spark) + vec3(0.25, 0.05, 0.04) * (vPulse + vWave) * spark;
+      hot = mix(hot, uRed * (ring * 1.5 + glyph * 1.35) + uRedGlow * halo * 0.2, icon);
+      gl_FragColor = vec4(hot, shape * vAlpha * redW);
+    }
   }
 `;
 
@@ -198,7 +215,8 @@ export const haloFragment = /* glsl */ `
   void main() {
     vec2 p = vUv - 0.5;
     float d = length(p) * 2.0;
-    float ring = exp(-pow((d - 0.86) / 0.035, 2.0));
+    float rq = (d - 0.86) / 0.035;
+    float ring = exp(-rq * rq);
     float fill = smoothstep(1.0, 0.0, d) * 0.06;
     float ang = atan(p.y, p.x);
     float dash = 0.55 + 0.45 * step(0.5, fract(ang * 6.0 / 3.14159 + uTime * 0.05));
