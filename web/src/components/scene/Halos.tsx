@@ -34,8 +34,12 @@ export function Halos() {
   }, []);
 
   useFrame(({ camera }) => {
-    const organics = scene.clusters.filter((c) => c.verdict === "ORGANIC COMMUNITY").slice(0, MAX);
     const t = now();
+    // only settled, substantial communities get a halo; small groups that
+    // flicker between runs would draw rings around accounts still in flight
+    const organics = scene.clusters
+      .filter((c) => c.verdict === "ORGANIC COMMUNITY" && c.size >= 14 && t - c.firstSeen > 2.5)
+      .slice(0, MAX);
     for (let k = 0; k < MAX; k++) {
       const m = meshes[k];
       const c = organics[k];
@@ -47,9 +51,9 @@ export function Halos() {
       m.visible = view.terrainMix < 0.98;
       m.position.set(...c.centroid);
       m.quaternion.copy(camera.quaternion);
-      m.scale.setScalar(Math.max(8, c.radius * 2.3));
+      m.scale.setScalar(Math.min(48, Math.max(10, c.radius * 2.3)));
       const mat = m.material as THREE.ShaderMaterial;
-      const fadeIn = Math.min(1, (t - c.firstSeen) / 1.5);
+      const fadeIn = Math.min(1, (t - c.firstSeen - 2.5) / 1.5);
       mat.uniforms.uOpacity.value = 0.55 * fadeIn * view.dim * (1 - view.terrainMix);
       mat.uniforms.uTime.value = t;
     }

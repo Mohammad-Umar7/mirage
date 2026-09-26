@@ -9,7 +9,11 @@ export function OrganicLabels() {
   const detection = useMirage((s) => s.detection);
   const view = useMirage((s) => s.view);
   const organics = useMemo(
-    () => (detection?.clusters ?? []).filter((c) => c.verdict === "ORGANIC COMMUNITY").sort((a, b) => b.size - a.size).slice(0, 8),
+    () =>
+      (detection?.clusters ?? [])
+        .filter((c) => c.verdict === "ORGANIC COMMUNITY" && c.size >= 14)
+        .sort((a, b) => b.size - a.size)
+        .slice(0, 6),
     [detection],
   );
   const refs = useRef(new Map<number, HTMLDivElement>());
