@@ -18,8 +18,8 @@ from .evidence import build_evidence
 from .features import FeatureStore
 from .graph import ALPHA, candidate_pairs, consolidate, fuse, leiden_communities, pair_similarities, refine
 from .knn import backend_name
-from .scoring import (ScoringContext, confidence, group_metrics, level_estimate, session_script, strengths,
-                      verdict)
+from .scoring import (WEIGHTS, ScoringContext, confidence, group_metrics, level_estimate, remember,
+                      session_script, strengths, verdict)
 from .signals import FundingSignal, SocialSignal, behavior_signal, content_signal, style_signal, timing_signal
 from .tracking import ClusterTracker
 from .types import ORGANIC, SWARM, Cluster, DetectionResult
@@ -54,8 +54,15 @@ class DetectionEngine:
         self.tracker = ClusterTracker()
         self.runs = 0
         self.flagged = np.zeros(0, dtype=bool)
+        self.memory: dict[int, tuple[float, dict[str, float]]] = {}
         self._n_prev = 0
         self.last: DetectionResult | None = None
+        try:  # BLAS and FAISS each spawning a pool per core hurts more than it helps
+            from threadpoolctl import threadpool_limits
+
+            self._pool_limit = threadpool_limits(limits=8)
+        except Exception:  # pragma: no cover - optional
+            self._pool_limit = None
 
     # ------------------------------------------------------------------ run
     def run(self, net: NetworkState) -> DetectionResult:
@@ -136,6 +143,10 @@ class DetectionEngine:
             m["edge_weight"] = float(sum_w[gi] / cnt_w[gi]) if cnt_w[gi] else 0.0
             m["edge_density"] = float(2.0 * cnt_w[gi] / max(1, len(g) * (len(g) - 1)))
             s = strengths(m, base)
+            prev = self.memory.get(ids[gi])
+            if prev is not None:
+                s = remember(s, prev[1], store.now - prev[0])
+            self.memory[ids[gi]] = (store.now, {f: s.get(f, 0.0) for f in WEIGHTS})
             conf, _ = confidence(s, len(g))
             v = verdict(conf, s, m, cfg.swarm_threshold, cfg.min_community)
             if v == SWARM:
@@ -145,6 +156,8 @@ class DetectionEngine:
             clusters.append(Cluster(ids[gi], v, conf, level_estimate(m) if v == SWARM else None, g, m, s, ev,
                                     self.tracker.first_seen.get(ids[gi], store.now), since))
         clusters.sort(key=lambda c: (c.verdict != SWARM, -c.confidence, -c.size))
+        horizon = store.now - 48 * 60.0
+        self.memory = {cid: v for cid, v in self.memory.items() if v[0] >= horizon}
         mark("scoring")
 
         new_flag = np.zeros(n, dtype=bool)
