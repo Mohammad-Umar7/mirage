@@ -68,7 +68,9 @@ function ballOffset(rank: number, count: number, radius: number, out: number[]) 
   const y = 1 - (2 * (rank + 0.5)) / count;
   const r = Math.sqrt(Math.max(0, 1 - y * y));
   const th = golden * rank;
-  const shell = Math.cbrt((rank + 0.5) / count);
+  // radius from an independent low-discrepancy sequence: tying it to the same
+  // index as the height would stack small shells on top of big ones (a cone)
+  const shell = Math.cbrt(((rank * 0.6180339887 + 0.37) % 1) * 0.94 + 0.06);
   const jitter = 0.85 + 0.3 * (((rank * 2654435761) >>> 0) / 4294967296);
   out[0] = Math.cos(th) * r * radius * shell * jitter;
   out[1] = y * radius * shell * jitter * 0.85;
