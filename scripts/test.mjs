@@ -10,7 +10,7 @@ const py = findPython({ venvOnly: true });
 if (!py) fail(`backend/.venv is missing — run ${c.gold("npm run setup")} first.`);
 
 const suites = [
-  ["backend · pytest", py.cmd, [...py.args, "-m", "pytest", "-q", ...(slow ? ["-m", "slow or not slow"] : [])], "backend"],
+  ["backend · pytest", py.cmd, [...py.args, "-m", "pytest", "-q", ...(slow ? [] : ["-m", "not slow"])], "backend"],
   ["contracts · hardhat test", "npx", ["hardhat", "test"], "contracts"],
   ["web · type-check", "npx", ["tsc", "--noEmit", "-p", "."], "web"],
 ];
