@@ -107,6 +107,17 @@ def group_metrics(members: np.ndarray, ctx: ScoringContext, full: bool = True) -
     if not full:
         return m
 
+    # voting / latency families need >= 10 voters / >= 5 repliers to count at
+    # all, so tiny groups skip the (per-member) work
+    if n < 10:
+        m["latency_n"] = 0
+        m["latency_med"] = _nan()
+        sample = members
+        sset = set(sample.tolist())
+        links = sum(len(ctx.store.follows[a] & sset) for a in sample.tolist())
+        m["follow_density"] = links / max(1, n * (n - 1))
+        return m
+
     # voting: the proposal this group turned out for most
     per_pid: dict[int, list[tuple[float, int]]] = {}
     for a in members.tolist():
