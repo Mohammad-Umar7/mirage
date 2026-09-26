@@ -44,8 +44,8 @@ type State = {
   evidenceFor: number | null;
   selected: number | null;
   lockedCluster: number | null;
-  /** swarms already acquired before the latest launch; a new launch re-arms the lock for fresh targets only */
-  lockIgnore: number[];
+  /** accounts in swarms acquired before the latest launch; a launch re-arms the lock for fresh targets only */
+  acquired: Uint8Array;
   view: View;
   sound: boolean;
   demo: DemoState;
@@ -83,7 +83,7 @@ export const useMirage = create<State>((set, get) => ({
   evidenceFor: null,
   selected: null,
   lockedCluster: null,
-  lockIgnore: [],
+  acquired: new Uint8Array(0),
   view: "network",
   sound: false,
   demo: { active: false, step: 0, caption: null, sub: null },

@@ -4,9 +4,8 @@ import { decodeClusters, unpackF32, unpackI32, unpackU8, type ServerMsg } from "
 import { scene } from "./sceneData";
 import { useMirage } from "./store";
 import { layout } from "./layoutClient";
+import { isFresh, LOCK_CONFIDENCE } from "./lock";
 import { kickAberration } from "./viewState";
-
-const LOCK_CONFIDENCE = 0.85;
 
 function wsUrl(): string {
   const env = process.env.NEXT_PUBLIC_MIRAGE_WS;
@@ -100,7 +99,7 @@ class MirageSocket {
           terrain: msg.terrain, launches: msg.launches, levels: msg.levels, chain: msg.chain,
           detection: msg.detection && clusters ? { ...rest, clusters } : null,
           metrics: msg.detection?.metrics ?? null, feed: [], evidence: null, evidenceFor: null,
-          selected: null, lockedCluster: null, lockIgnore: [],
+          selected: null, lockedCluster: null, acquired: new Uint8Array(0),
         });
         break;
       }
@@ -124,7 +123,7 @@ class MirageSocket {
         scene.applyDetection(msg, clusters);
         layout.graph();
         const { clusters: _c, edges: _e, type: _t, ...rest } = msg;
-        const top = clusters.find((c) => c.verdict === "SWARM" && !st.lockIgnore.includes(c.id));
+        const top = clusters.find((c) => c.verdict === "SWARM" && isFresh(c.members, st.acquired));
         const locked = top && top.confidence >= LOCK_CONFIDENCE ? top.id : null;
         if (locked !== null && st.lockedCluster === null) {
           st.fire({ kind: "lock", data: locked });
@@ -148,11 +147,15 @@ class MirageSocket {
       case "launched": {
         // release the current target so the camera pulls back and the next
         // acquisition is about the swarm that was just launched
-        const known = (st.detection?.clusters ?? []).filter((c) => c.verdict === "SWARM").map((c) => c.id);
+        const acquired = new Uint8Array(Math.max(scene.n, st.acquired.length));
+        acquired.set(st.acquired);
+        for (const c of st.detection?.clusters ?? []) {
+          if (c.verdict === "SWARM") for (let k = 0; k < c.members.length; k++) acquired[c.members[k]] = 1;
+        }
         const released = st.lockedCluster;
         st.set({
           launches: [...st.launches, msg],
-          lockIgnore: [...new Set([...st.lockIgnore, ...known])],
+          acquired,
           lockedCluster: null,
           selected: released !== null && st.selected === released ? null : st.selected,
         });
