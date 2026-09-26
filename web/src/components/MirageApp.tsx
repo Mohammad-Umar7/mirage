@@ -7,9 +7,12 @@ import { scene } from "@/lib/sceneData";
 import { socket } from "@/lib/socket";
 import { useMirage } from "@/lib/store";
 import { view } from "@/lib/viewState";
+import { Captions } from "./hud/Captions";
 import { ConnectionOverlay } from "./hud/ConnectionOverlay";
+import { DemoControls } from "./hud/DemoControls";
 import { Feed } from "./hud/Feed";
 import { Frame } from "./hud/Frame";
+import { FxDirector } from "./hud/FxDirector";
 import { MetricsStrip } from "./hud/MetricsStrip";
 import { OrganicLabels } from "./hud/OrganicLabels";
 import { TargetRing } from "./hud/TargetRing";
@@ -43,6 +46,9 @@ export default function MirageApp() {
       <MetricsStrip />
       <EvidencePanel />
       <GovernanceView />
+      <DemoControls />
+      <Captions />
+      <FxDirector />
       <ConnectionOverlay />
     </main>
   );
