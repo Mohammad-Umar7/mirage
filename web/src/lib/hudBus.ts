@@ -13,8 +13,12 @@ export type ScreenCluster = {
 
 type Listener = (list: ScreenCluster[]) => void;
 
+export type Rect = { x0: number; y0: number; x1: number; y1: number };
+
 class HudBus {
   list: ScreenCluster[] = [];
+  /** screen rect of the target readout card, so labels can keep clear of it */
+  readout: Rect | null = null;
   private listeners = new Set<Listener>();
 
   publish(list: ScreenCluster[]) {

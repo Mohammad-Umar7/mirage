@@ -4,10 +4,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fixed, int, simSpan } from "@/lib/format";
 import { hudBus } from "@/lib/hudBus";
+import { isFresh, LOCK_CONFIDENCE } from "@/lib/lock";
 import { commands } from "@/lib/socket";
 import { useMirage } from "@/lib/store";
-
-const LOCK = 0.85;
 
 function Ticks({ r, count, major, len, majorLen, color }: { r: number; count: number; major: number; len: number; majorLen: number; color: string }) {
   const lines = [];
@@ -81,12 +80,14 @@ function Readout({ locked, cluster }: { locked: boolean; cluster: NonNullable<Re
 function useTarget() {
   const detection = useMirage((s) => s.detection);
   const locked = useMirage((s) => s.lockedCluster);
+  const acquired = useMirage((s) => s.acquired);
   return useMemo(() => {
     if (!detection) return null;
-    const swarms = detection.clusters.filter((c) => c.verdict === "SWARM");
-    if (locked !== null) return swarms.find((c) => c.id === locked) ?? swarms[0] ?? null;
-    return swarms[0] ?? null;
-  }, [detection, locked]);
+    // swarms acquired before the latest launch stay red in the scene but lose the ring
+    const fresh = detection.clusters.filter((c) => c.verdict === "SWARM" && isFresh(c.members, acquired));
+    if (locked !== null) return detection.clusters.find((c) => c.id === locked && c.verdict === "SWARM") ?? fresh[0] ?? null;
+    return fresh[0] ?? null;
+  }, [detection, locked, acquired]);
 }
 
 export function TargetRing() {
@@ -98,7 +99,7 @@ export function TargetRing() {
   const readout = useRef<HTMLDivElement>(null);
   const leader = useRef<SVGLineElement>(null);
   const [lockedAt, setLockedAt] = useState<number | null>(null);
-  const locked = !!cluster && cluster.confidence >= LOCK;
+  const locked = !!cluster && cluster.confidence >= LOCK_CONFIDENCE;
 
   useEffect(() => {
     if (locked && lockedAt === null) setLockedAt(performance.now());
@@ -108,12 +109,13 @@ export function TargetRing() {
   useEffect(() => {
     if (!cluster) return;
     const id = cluster.id;
-    return hudBus.subscribe((list) => {
+    const off = hudBus.subscribe((list) => {
       const s = list.find((c) => c.id === id);
       const el = root.current;
       if (!el) return;
       if (!s || !s.visible) {
         el.style.opacity = "0";
+        hudBus.readout = null;
         return;
       }
       const vw = window.innerWidth, vh = window.innerHeight;
@@ -130,6 +132,8 @@ export function TargetRing() {
       if (readout.current) {
         const dx = right ? R + 70 : -R - 70 - 270;
         readout.current.style.transform = `translate(${dx}px, ${-R * 0.7 - 20}px)`;
+        const x0 = s.x + dx, y0 = s.y - R * 0.7 - 20;
+        hudBus.readout = useMirage.getState().selected === null ? { x0, y0, x1: x0 + 310, y1: y0 + 225 } : null;
       }
       if (leader.current) {
         const a = right ? -0.72 : Math.PI + 0.72;
@@ -142,6 +146,10 @@ export function TargetRing() {
         leader.current.setAttribute("y2", `${y2}`);
       }
     });
+    return () => {
+      off();
+      hudBus.readout = null;
+    };
   }, [cluster]);
 
   const color = locked ? "#FF4D40" : "#FFB347";
