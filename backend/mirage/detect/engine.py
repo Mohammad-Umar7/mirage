@@ -137,6 +137,8 @@ class DetectionEngine:
         sum_w = np.bincount(li[internal], weights=w[internal], minlength=len(groups))
         cnt_w = np.bincount(li[internal], minlength=len(groups))
         ids = self.tracker.assign(groups, n, store.now)
+        observed = store.now - (store.first_seen_t if store.first_seen_t is not None else store.now)
+        mature = min(1.0, observed / (cfg.maturity_hours * 60.0)) if cfg.maturity_hours > 0 else 1.0
         clusters: list[Cluster] = []
         for gi, g in enumerate(groups):
             m = group_metrics(g, ctx)
@@ -148,6 +150,8 @@ class DetectionEngine:
                 s = remember(s, prev[1], store.now - prev[0])
             self.memory[ids[gi]] = (store.now, {f: s.get(f, 0.0) for f in WEIGHTS})
             conf, _ = confidence(s, len(g))
+            if mature < 1.0:  # no verdicts before the detector has learned what normal looks like
+                conf = min(conf, 0.45)
             v = verdict(conf, s, m, cfg.swarm_threshold, cfg.min_community)
             if v == SWARM:
                 session_script(g, ctx, m)

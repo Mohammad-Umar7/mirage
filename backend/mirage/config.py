@@ -112,6 +112,7 @@ class DetectorConfig(_EnvMixin):
     embed_budget: int = 4096
     embedder: str = "auto"
     baseline_alpha: float = 0.08
+    maturity_hours: float = 24.0
     viz_edges: int = 12000
     seed: int = 0
 
