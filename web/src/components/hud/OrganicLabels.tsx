@@ -20,14 +20,20 @@ export function OrganicLabels() {
 
   useEffect(() => {
     return hudBus.subscribe((list) => {
+      const swarm = list.find((c) => c.verdict === "SWARM" && c.visible);
+      const vw = window.innerWidth, vh = window.innerHeight;
       for (const [id, el] of refs.current) {
         const s = list.find((c) => c.id === id);
         if (!s || !s.visible || view !== "network") {
           el.style.opacity = "0";
           continue;
         }
-        el.style.opacity = s.depth > 520 ? "0.35" : "1";
-        el.style.transform = `translate3d(${s.x + s.r * 0.72 + 6}px, ${s.y - s.r * 0.72 - 14}px, 0)`;
+        const x = s.x + s.r * 0.72 + 6, y = s.y - s.r * 0.72 - 14;
+        // keep clear of the targeting ring and of the HUD bands
+        const nearRing = swarm && Math.hypot(x - swarm.x, y - swarm.y) < Math.max(150, swarm.r * 2.4 + 60);
+        const inBands = y < 110 || y > vh - 150 || x < 360 || x > vw - 160;
+        el.style.opacity = nearRing || inBands ? "0" : s.depth > 520 ? "0.35" : "1";
+        el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
       }
     });
   }, [view]);

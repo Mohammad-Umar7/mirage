@@ -21,11 +21,11 @@ export function Effects() {
   });
   return (
     <EffectComposer multisampling={0} enableNormalPass={false}>
-      <Bloom mipmapBlur intensity={1.35} luminanceThreshold={0.12} luminanceSmoothing={0.35} radius={0.82} />
+      <Bloom mipmapBlur intensity={1.15} luminanceThreshold={0.16} luminanceSmoothing={0.3} radius={0.78} />
       <ChromaticAberration ref={ca} offset={offset} radialModulation modulationOffset={0.35} />
       {/* additive grain: soft-light/premultiplied blends evaluate branches that overflow to
           inf on the HDR swarm core and turn it into NaN (blue/green garbage) */}
-      <Noise opacity={0.045} blendFunction={BlendFunction.ADD} />
+      <Noise opacity={0.016} blendFunction={BlendFunction.ADD} />
       <Vignette eskil={false} offset={0.22} darkness={0.78} />
     </EffectComposer>
   );

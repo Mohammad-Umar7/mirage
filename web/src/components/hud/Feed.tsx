@@ -17,16 +17,17 @@ export function Feed() {
         <span className="hud-label !text-[8.5px]">Live feed</span>
       </div>
       <div className="space-y-1.5 [mask-image:linear-gradient(180deg,#000_55%,transparent)]">
-        <AnimatePresence initial={false}>
+        {/* no exit animation: exiting rows overlapping entering rows read as garbled text */}
+        <AnimatePresence initial={false} mode="popLayout">
           {items.map((f) => (
             <motion.div
               key={f.post}
-              layout
+              layout="position"
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
-              className="text-[10.5px] leading-snug"
+              exit={{ opacity: 0, transition: { duration: 0 } }}
+              transition={{ duration: 0.35 }}
+              className="line-clamp-2 text-[10.5px] leading-snug"
             >
               <span className={`hud-value mr-1.5 ${f.verdict === "SWARM" ? "text-red-glow" : "text-gold"}`}>@{f.handle}</span>
               {f.verdict === "SWARM" && (

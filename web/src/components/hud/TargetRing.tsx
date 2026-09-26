@@ -226,8 +226,8 @@ export function TargetRing() {
                   transition={{ duration: 0.9, ease: "easeOut" }}
                 />
               )}
-              <text x={0} y={-114} textAnchor="middle" className="hud-value" fontSize={7} fill={color} letterSpacing={2}>
-                {locked ? "LOCK" : "TRK"}
+              <text x={0} y={-115} textAnchor="middle" className="hud-value" fontSize={4.6} fill={color} letterSpacing={2.4}>
+                {locked ? "TARGET LOCKED" : "TRACKING"}
               </text>
             </svg>
           </div>

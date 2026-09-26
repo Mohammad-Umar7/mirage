@@ -48,13 +48,17 @@ export function Halos() {
         continue;
       }
       scene.measure(c);
+      if (c.radius > 24) {
+        m.visible = false; // still gathering: a ring now would circle empty space
+        continue;
+      }
       m.visible = view.terrainMix < 0.98;
       m.position.set(...c.centroid);
       m.quaternion.copy(camera.quaternion);
-      m.scale.setScalar(Math.min(48, Math.max(10, c.radius * 2.3)));
+      m.scale.setScalar(Math.min(34, Math.max(9, c.radius * 2.1)));
       const mat = m.material as THREE.ShaderMaterial;
       const fadeIn = Math.min(1, (t - c.firstSeen - 2.5) / 1.5);
-      mat.uniforms.uOpacity.value = 0.55 * fadeIn * view.dim * (1 - view.terrainMix);
+      mat.uniforms.uOpacity.value = 0.34 * fadeIn * view.dim * (1 - view.terrainMix);
       mat.uniforms.uTime.value = t;
     }
   });
