@@ -20,9 +20,9 @@ import numpy as np
 from ..config import DetectorConfig
 from ..util import l2_normalize, mean_pairwise_cosine
 from .knn import knn
-from .signals import DENSE_SIGNALS, SIGNALS, DenseSignal, FundingSignal
+from .signals import DENSE_SIGNALS, SIGNALS, DenseSignal, FundingSignal, SocialSignal
 
-ALPHA = {"timing": 1.0, "content": 0.7, "style": 0.9, "behavior": 0.9, "funding": 1.0}
+ALPHA = {"timing": 1.0, "content": 0.7, "style": 0.9, "behavior": 0.9, "funding": 1.0, "social": 0.7}
 BIT = {name: 1 << i for i, name in enumerate(SIGNALS)}
 
 
@@ -33,30 +33,45 @@ def canonical_pairs(I: np.ndarray, J: np.ndarray, n: int) -> tuple[np.ndarray, n
     return key // n, key % n
 
 
-def candidate_pairs(dense: dict[str, DenseSignal], funding: FundingSignal, n: int, k: int,
-                    rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+def candidate_pairs(dense: dict[str, DenseSignal], funding: FundingSignal, social: SocialSignal, n: int, k: int,
+                    rng: np.random.Generator, zfun=None, zmin: float = 3.75) -> tuple[np.ndarray, np.ndarray]:
+    """Union of per-signal kNN graphs plus structural (funding/social) links.
+
+    A kNN pair is only kept when it is unusual on the signal that proposed
+    it (z >= zmin, where the signal starts to count as strong in fusion):
+    everyone has nearest neighbours, not everyone has close ones. A pair that
+    is weak on the proposing signal only matters if two other signals are
+    strong - and those would have proposed it themselves. Scores come from
+    the kNN search itself, so the filter is free.
+    """
     Is, Js = [], []
-    for sig in dense.values():
+    for name, sig in dense.items():
         if len(sig.rows) < 3:
             continue
-        idx, _ = knn(sig.X, k)
+        idx, sims = knn(sig.X, k)
         src = np.repeat(sig.rows, idx.shape[1])
         dst_local = idx.ravel()
         ok = dst_local >= 0
+        if zfun is not None:
+            ok &= zfun(name, sims.ravel()) >= zmin
         Is.append(src[ok])
         Js.append(sig.rows[dst_local[ok]])
-    fi, fj = funding.candidates(k, rng)
+    fi, fj = funding.candidates(max(2, k // 2), rng)
     Is.append(fi)
     Js.append(fj)
+    si, sj = social.candidates()
+    Is.append(si)
+    Js.append(sj)
     if not Is:
         return np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.int64)
     return canonical_pairs(np.concatenate(Is), np.concatenate(Js), n)
 
 
-def pair_similarities(dense: dict[str, DenseSignal], funding: FundingSignal, I: np.ndarray,
-                      J: np.ndarray) -> dict[str, np.ndarray]:
+def pair_similarities(dense: dict[str, DenseSignal], funding: FundingSignal, social: SocialSignal,
+                      I: np.ndarray, J: np.ndarray) -> dict[str, np.ndarray]:
     sims = {name: sig.pair_sim(I, J) for name, sig in dense.items()}
     sims["funding"] = funding.pair_sim(I, J) if len(I) else np.zeros(0, dtype=np.float32)
+    sims["social"] = social.pair_sim(I, J)
     return sims
 
 
@@ -104,7 +119,7 @@ def _prune(lab: np.ndarray, ci: np.ndarray, cj: np.ndarray, w: np.ndarray, round
     """Drop members that hang on to their group by a thread.
 
     A member stays if its weighted degree inside the group is at least
-    max(0.35, 20% of the group's median internal degree).
+    max(0.5, 20% of the group's median internal degree).
     """
     lab = lab.copy()
     for _ in range(rounds):
@@ -114,7 +129,7 @@ def _prune(lab: np.ndarray, ci: np.ndarray, cj: np.ndarray, w: np.ndarray, round
         changed = False
         for grp in _groups(lab):
             vals = deg[grp]
-            cut = max(0.35, 0.2 * float(np.median(vals)))
+            cut = max(0.5, 0.2 * float(np.median(vals)))
             weak = grp[vals < cut]
             if len(weak):
                 lab[weak] = -1
@@ -122,6 +137,52 @@ def _prune(lab: np.ndarray, ci: np.ndarray, cj: np.ndarray, w: np.ndarray, round
         if not changed:
             break
     return lab
+
+
+def cohesion(members: np.ndarray, dense: dict[str, DenseSignal]) -> float:
+    """Highest mean pairwise similarity of the group across dense signals."""
+    best = 0.0
+    for sig in dense.values():
+        V = sig.vectors(members)
+        if len(V) >= 3:
+            best = max(best, mean_pairwise_cosine(V))
+    return best
+
+
+def refine(groups: list[np.ndarray], dense: dict[str, DenseSignal], I: np.ndarray, J: np.ndarray,
+           w: np.ndarray, n: int, cfg: DetectorConfig, min_size: int = 40, max_cohesion: float = 0.3,
+           density: float = 0.05) -> list[np.ndarray]:
+    """Re-partition big, incoherent groups by edge density.
+
+    Modularity happily lumps a loose web of ordinary users into one large
+    module and swallows small dense groups (the resolution limit). A group
+    whose members are not actually similar is re-split with the Constant
+    Potts Model, which only keeps sub-groups denser than `density`. Cohesive
+    groups (for example a swarm) are never re-split.
+    """
+    out: list[np.ndarray] = []
+    label = np.full(n, -1, dtype=np.int64)
+    for gi, g in enumerate(groups):
+        if len(g) < min_size or cohesion(g, dense) >= max_cohesion:
+            out.append(g)
+        else:
+            label[g] = gi
+    # CPM is local (density-based), so all incoherent groups can be re-split
+    # in ONE call on the union of their internal edges.
+    li, lj = label[I], label[J]
+    mask = (w >= cfg.min_edge_weight) & (li >= 0) & (li == lj)
+    if not mask.any():
+        return out
+    sub_nodes, inv = np.unique(np.concatenate([I[mask], J[mask]]), return_inverse=True)
+    m = int(mask.sum())
+    graph = ig.Graph(n=len(sub_nodes), edges=np.column_stack([inv[:m], inv[m:]]).tolist(), directed=False)
+    graph.es["weight"] = w[mask].astype(float).tolist()
+    part = leidenalg.find_partition(graph, leidenalg.CPMVertexPartition, weights="weight",
+                                    resolution_parameter=density, n_iterations=-1, seed=cfg.seed + 2)
+    for local in _groups(np.asarray(part.membership, dtype=np.int64)):
+        if len(local) >= 2:
+            out.append(sub_nodes[local])
+    return out
 
 
 def consolidate(groups: list[np.ndarray], dense: dict[str, DenseSignal], I: np.ndarray, J: np.ndarray,
