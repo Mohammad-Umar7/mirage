@@ -39,7 +39,7 @@ class FeatureStore:
         self.now = 0.0
         self.cursor = 0
         self.act = np.zeros((0, self.B), dtype=np.float32)
-        self.emb = np.zeros((0, self.P, self.dim), dtype=np.float16)
+        self.emb = np.zeros((0, self.P, self.dim), dtype=np.float32)
         self.emb_t = np.zeros((0, self.P))
         self.emb_pos = np.zeros(0, dtype=np.int64)
         self.sty = np.zeros((0, self.Ps, N_FEATURES), dtype=np.float32)
@@ -183,7 +183,7 @@ class FeatureStore:
         batch = [x for x in batch if x[2] >= cutoff]
         if not batch:
             return 0
-        vecs = self.embedder.encode([net.post_text[pid] for pid, _, _ in batch]).astype(np.float16)
+        vecs = self.embedder.encode([net.post_text[pid] for pid, _, _ in batch]).astype(np.float32)
         for (pid, a, t), v in zip(batch, vecs):
             pos = self.emb_pos[a] % self.P
             self.emb[a, pos] = v
@@ -202,7 +202,7 @@ class FeatureStore:
         n = self.n
         valid = self.emb_t[:n] >= self.now - self.window
         counts = valid.sum(axis=1)
-        sums = np.einsum("np,npd->nd", valid.astype(np.float32), self.emb[:n].astype(np.float32))
+        sums = np.einsum("np,npd->nd", valid.astype(np.float32), self.emb[:n])
         means = sums / np.maximum(counts, 1)[:, None]
         return means.astype(np.float32), counts
 
