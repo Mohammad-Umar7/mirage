@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { audio } from "@/lib/audio";
+import { isFresh } from "@/lib/lock";
 import { useMirage } from "@/lib/store";
 
 // Reacts to stream events with sound and a brief screen flash; drives the
@@ -12,6 +13,7 @@ export function FxDirector() {
   const sound = useMirage((s) => s.sound);
   const detection = useMirage((s) => s.detection);
   const locked = useMirage((s) => s.lockedCluster);
+  const acquired = useMirage((s) => s.acquired);
   const seen = useRef(0);
   const [flash, setFlash] = useState(0);
 
@@ -35,10 +37,10 @@ export function FxDirector() {
   }, [fx]);
 
   useEffect(() => {
-    const top = detection?.clusters.find((c) => c.verdict === "SWARM" || c.watch);
+    const top = detection?.clusters.find((c) => (c.verdict === "SWARM" || c.watch) && isFresh(c.members, acquired));
     const acquiring = top && locked === null ? Math.min(1, Math.max(0, (top.confidence - 0.25) / 0.6)) : 0;
     audio.tension(acquiring);
-  }, [detection, locked]);
+  }, [detection, locked, acquired]);
 
   return (
     <AnimatePresence>
