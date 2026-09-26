@@ -26,6 +26,7 @@ DAY = 1440.0
 WEIGHTS = {"sync": 0.6, "style": 0.55, "behavior": 0.5, "funding": 0.65, "vote": 0.55, "latency": 0.35,
            "lifecycle": 0.45}
 BEHAVIORAL = ("sync", "style", "behavior", "vote", "latency")
+COORDINATION = ("sync", "funding", "vote", "latency", "lifecycle")
 VECTOR_KEYS = (("timing", "sync"), ("content", "content"), ("style", "style"), ("behavior", "behavior"))
 
 
@@ -42,8 +43,12 @@ class ScoringContext:
         v = self.latency_cache.get(a)
         if v is None:
             cutoff = self.now - self.store.window
-            vals = [x for t, x in self.store.latency[a] if t >= cutoff and x >= 0]
-            v = float(np.median(vals)) if vals else float("nan")
+            vals = sorted(x for t, x in self.store.latency[a] if t >= cutoff and x >= 0)
+            if vals:
+                mid = len(vals) // 2
+                v = vals[mid] if len(vals) % 2 else 0.5 * (vals[mid - 1] + vals[mid])
+            else:
+                v = float("nan")
             self.latency_cache[a] = v
         return v
 
@@ -133,7 +138,14 @@ def group_metrics(members: np.ndarray, ctx: ScoringContext, full: bool = True) -
     sset = set(sample.tolist())
     links = sum(len(ctx.store.follows[a] & sset) for a in sample.tolist())
     m["follow_density"] = links / max(1, len(sample) * (len(sample) - 1))
+    return m
 
+
+def session_script(members: np.ndarray, ctx: ScoringContext, m: dict) -> None:
+    """Most common session opening (first 4 actions) among members.
+
+    Only needed to phrase evidence, so it runs for flagged clusters only.
+    """
     patterns: Counter = Counter()
     counted = 0
     for a in members[:400].tolist():
@@ -148,7 +160,6 @@ def group_metrics(members: np.ndarray, ctx: ScoringContext, full: bool = True) -
         pat, cnt = patterns.most_common(1)[0]
         m["script"] = " → ".join(ACTION_NAME.get(c, "?") for c in pat)
         m["script_frac"] = cnt / counted
-    return m
 
 
 def _ref(base: Baseline, key: str) -> float:
@@ -186,15 +197,24 @@ def strengths(m: dict, base: Baseline) -> dict[str, float]:
 
 
 def confidence(s: dict[str, float], size: int) -> tuple[float, list[str]]:
+    """Noisy-OR over mechanical families, gated on independent corroboration.
+
+    SWARM-level confidence needs (a) two strong families, (b) one of them
+    behavioural (what the accounts do), and (c) one of them a coordination
+    family (shared clock, money, vote, reflexes or lifecycle). People with
+    similar tastes can share a style or a topic by accident; they do not
+    share a funder or a trigger.
+    """
     prod = 1.0
     for fam, w in WEIGHTS.items():
         prod *= 1.0 - w * s.get(fam, 0.0)
     conf = 1.0 - prod
     strong = [f for f in WEIGHTS if s.get(f, 0.0) >= 0.5]
     behavioral = any(f in BEHAVIORAL for f in strong)
+    coordinated = any(f in COORDINATION for f in strong)
     if not strong:
         conf = min(conf, 0.25)
-    elif len(strong) == 1 or not behavioral:
+    elif len(strong) == 1 or not behavioral or not coordinated:
         conf = min(conf, 0.45)
     conf *= ramp(size, 3, 10)
     return float(conf), strong
@@ -203,7 +223,9 @@ def confidence(s: dict[str, float], size: int) -> tuple[float, list[str]]:
 def verdict(conf: float, s: dict[str, float], m: dict, swarm_threshold: float, min_size: int) -> str:
     if conf >= swarm_threshold:
         return SWARM
-    cohesion = max(s.get("content", 0.0), s.get("social", 0.0), ramp(m.get("edge_weight", 0.0), 0.5, 1.2))
+    # Organic cohesion = shared interests or real social ties. Edge weight is
+    # deliberately not used: a not-yet-active swarm is tightly wired too.
+    cohesion = max(s.get("content", 0.0), s.get("social", 0.0))
     if m["size"] >= min_size and cohesion >= 0.3:
         return ORGANIC
     return NORMAL
