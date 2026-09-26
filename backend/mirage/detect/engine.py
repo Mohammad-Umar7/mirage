@@ -7,6 +7,7 @@ else. It never sees labels, hidden profiles or operator plans.
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
@@ -30,6 +31,8 @@ N_RANDOM_PAIRS = 6000
 N_RANDOM_GROUPS = 6
 RANDOM_GROUP_SIZE = 30
 
+# one shared worker for post embedding (module level so engines stay deep-copyable)
+_EMBED_POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mirage-embed")
 
 _POOL_LIMIT = None
 
@@ -96,20 +99,23 @@ class DetectionEngine:
         rng = np.random.default_rng([cfg.seed, self.runs])
         mark("ingest")
 
-        store.embed_pending(net, cfg.embed_budget)
-        mark("embed")
-
+        # Embedding new posts (GPU, or its own BLAS work) overlaps with the CPU
+        # signals that don't read embeddings; only the content signal waits.
+        embed_job = _EMBED_POOL.submit(store.embed_pending, net, cfg.embed_budget)
         base = self.base
         timing = timing_signal(store, cfg)
-        content, c_rows, c_raw = content_signal(store, cfg, base.content_center)
         style, s_rows, s_raw = style_signal(store, cfg, base.style_mu, base.style_sd)
         behavior, b_rows, b_prof = behavior_signal(store, cfg, base.ngram_center, seed=cfg.seed)
         fview = store.funding.account_view(store.wallet[:n])
         funding = FundingSignal(fview, n)
         social = SocialSignal(store.follow_matrix())
+        mark("signals")
+        embed_job.result()
+        mark("embed")
+        content, c_rows, c_raw = content_signal(store, cfg, base.content_center)
         dense = {"timing": timing, "content": content, "style": style, "behavior": behavior}
         self.last_signals = dense
-        mark("signals")
+        mark("content")
 
         flagged = self._flag_mask(n)
         active = np.zeros(n, dtype=bool)
