@@ -38,6 +38,7 @@ async function vote(ctx: Ctx, id: number, voters: Wallet[], choice: number) {
   }
 }
 
+/** Runs a full oracle epoch; returns the gas spent on member attestations. */
 async function attest(ctx: Ctx, e: number, clusters: { id: number; members: Wallet[] }[]) {
   const ids = clusters.map((c) => c.id);
   const sizes = clusters.map((c) => c.members.length);
@@ -46,6 +47,7 @@ async function attest(ctx: Ctx, e: number, clusters: { id: number; members: Wall
   );
   await ctx.gov.beginEpoch(e, ids, sizes, await ctx.oracle.signMessage(ethers.getBytes(begin)));
   const all = clusters.flatMap((c) => c.members.map((m) => ({ addr: m.address, id: c.id })));
+  let gas = 0n;
   for (let s = 0, chunk = 0; s < all.length; s += 300, chunk++) {
     const part = all.slice(s, s + 300);
     const members = part.map((p) => p.addr);
@@ -56,10 +58,12 @@ async function attest(ctx: Ctx, e: number, clusters: { id: number; members: Wall
         [ctx.address, ctx.chainId, "MIRAGE_MEMBERS", e, chunk, members, mids],
       ),
     );
-    await ctx.gov.attestMembers(e, chunk, members, mids, await ctx.oracle.signMessage(ethers.getBytes(digest)));
+    const tx = await ctx.gov.attestMembers(e, chunk, members, mids, await ctx.oracle.signMessage(ethers.getBytes(digest)));
+    gas += (await tx.wait())!.gasUsed;
   }
   const fin = ethers.keccak256(coder.encode(["address", "uint256", "string", "uint256"], [ctx.address, ctx.chainId, "MIRAGE_FINALIZE", e]));
   await ctx.gov.finalizeEpoch(e, await ctx.oracle.signMessage(ethers.getBytes(fin)));
+  return gas;
 }
 
 async function setup(mode = 0, swarmSize = 400, honestSize = 100) {
@@ -172,5 +176,30 @@ describe("MirageGovernance", () => {
     await expect(ctx.gov.connect(ctx.stranger).setMode(1)).to.be.revertedWithCustomError(ctx.gov, "NotOwner");
     await ctx.gov.connect(ctx.owner).setMode(1);
     expect(await ctx.gov.mode()).to.equal(1n);
+  });
+
+  it("retiring stale proposals keeps attestation cost bounded", async () => {
+    const { ctx, swarm, honest } = await setup(0, 120, 30);
+    // proposals from earlier (reset) worlds pile up on a long-running chain
+    const stale = Array.from({ length: 30 }, (_, i) => 1000 + i);
+    for (const id of stale) await ctx.gov.connect(ctx.relayer).createProposal(id, `old world #${id}`, swarm[0].address, 1n, 0, 0);
+    await vote(ctx, 7, swarm, YES);
+    await vote(ctx, 7, honest, NO);
+    const heavy = await attest(ctx, 1, [{ id: 5, members: swarm }]);
+    await ctx.gov.connect(ctx.relayer).retireProposals(stale);
+    expect(await ctx.gov.activeProposals()).to.deep.equal([7n]);
+    const light = await attest(ctx, 2, [{ id: 5, members: swarm }]);
+    expect(light * 2n < heavy).to.equal(true);
+    const [wYes, wNo] = await ctx.gov.tally(7, true); // the live proposal still collapses the swarm
+    expect(wYes).to.equal(1n * WAD);
+    expect(wNo).to.equal(30n * WAD);
+  });
+
+  it("only the relayer retires proposals, and retiring is idempotent", async () => {
+    const { ctx } = await setup(0, 5, 5);
+    await expect(ctx.gov.connect(ctx.stranger).retireProposals([7])).to.be.revertedWithCustomError(ctx.gov, "NotRelayer");
+    await ctx.gov.connect(ctx.relayer).retireProposals([7, 7, 999]);
+    expect(await ctx.gov.activeProposals()).to.deep.equal([]);
+    expect(await ctx.gov.proposalCount()).to.equal(1n); // history is kept
   });
 });
