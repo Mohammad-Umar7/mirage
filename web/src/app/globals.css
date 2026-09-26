@@ -156,6 +156,15 @@ body {
   animation: blink 1.2s steps(1) infinite;
 }
 
+@keyframes eq {
+  from {
+    transform: scaleY(0.35);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
