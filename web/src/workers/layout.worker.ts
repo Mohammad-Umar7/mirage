@@ -113,7 +113,7 @@ function applyGraph(m: Extract<Msg, { type: "graph" }>) {
     if (!count) continue;
     if (c.verdict === "SWARM" && c.confidence >= 0.55) {
       const a = swarmAnchor(c.id);
-      const radius = 5 + 1.75 * Math.cbrt(count);
+      const radius = 8 + 2.7 * Math.cbrt(count);
       const pull = Math.min(1, (c.confidence - 0.5) / 0.4);
       for (let k = 0; k < count; k++) {
         const i = members[k];
@@ -159,8 +159,10 @@ function step(dt: number) {
     const a = ei[e], b = ej[e];
     if (a >= n || b >= n) continue;
     const inside = eInside[e] === 1;
-    const rest = inside ? 3 : 26;
-    const k = (inside ? 0.35 : 0.018) * Math.min(2.5, ew[e]);
+    // inside a cluster the targets already form the ball; springs only add
+    // a little web-like tension (strong springs would crush it into a point)
+    const rest = inside ? 16 : 26;
+    const k = (inside ? 0.05 : 0.018) * Math.min(2.5, ew[e]);
     const dx = pos[b * 3] - pos[a * 3];
     const dy = pos[b * 3 + 1] - pos[a * 3 + 1];
     const dz = pos[b * 3 + 2] - pos[a * 3 + 2];
