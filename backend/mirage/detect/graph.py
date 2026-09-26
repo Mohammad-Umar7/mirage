@@ -102,7 +102,7 @@ def leiden_communities(n: int, I: np.ndarray, J: np.ndarray, w: np.ndarray, cfg:
     g = ig.Graph(n=len(nodes), edges=np.column_stack([ci, cj]).tolist(), directed=False)
     g.es["weight"] = w.astype(float).tolist()
     part = leidenalg.find_partition(g, leidenalg.ModularityVertexPartition, weights="weight",
-                                    n_iterations=-1, seed=cfg.seed + 1)
+                                    n_iterations=2, seed=cfg.seed + 1)
     lab = _prune(np.asarray(part.membership, dtype=np.int64), ci, cj, w)
     return [nodes[local] for local in _groups(lab) if len(local) >= 2]
 
@@ -178,7 +178,7 @@ def refine(groups: list[np.ndarray], dense: dict[str, DenseSignal], I: np.ndarra
     graph = ig.Graph(n=len(sub_nodes), edges=np.column_stack([inv[:m], inv[m:]]).tolist(), directed=False)
     graph.es["weight"] = w[mask].astype(float).tolist()
     part = leidenalg.find_partition(graph, leidenalg.CPMVertexPartition, weights="weight",
-                                    resolution_parameter=density, n_iterations=-1, seed=cfg.seed + 2)
+                                    resolution_parameter=density, n_iterations=2, seed=cfg.seed + 2)
     for local in _groups(np.asarray(part.membership, dtype=np.int64)):
         if len(local) >= 2:
             out.append(sub_nodes[local])
