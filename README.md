@@ -121,22 +121,23 @@ Level 5 is **not** detected, and that's the honest answer this project is built 
 ## How it works
 
 ```mermaid
-flowchart LR
-  subgraph SIM["Simulator · ground truth sealed"]
+flowchart TB
+  subgraph SIM["Simulator · ground truth stays sealed here"]
     RU["3,000 real users"]
-    HN["hard negatives: club · friends · working group"]
-    SW["operator swarms L1–L5"]
+    HN["hard negatives<br/>club · friends · working group"]
+    SW["operator swarms<br/>levels 1–5"]
+    TRUTH[("ground truth")]
   end
-  RU & HN & SW --> NET[("public NetworkState<br/>posts · follows · transfers · votes")]
-  NET --> DET
-  subgraph DET["Detection engine · under 1 s"]
-    FS["incremental feature store"] --> SIG["6 signals"] --> KNN["FAISS kNN<br/>+ baseline z-scores"] --> FUSE["fused graph"] --> LEI["Leiden + refine"] --> SCORE["scoring · evidence<br/>verdicts · weights"]
+  SIM -- "public activity only" --> NET[("NetworkState<br/>posts · follows · transfers · votes")]
+  subgraph DET["Detection engine · under 1 s per run"]
+    SIG["6 signals<br/>timing · content · style<br/>behaviour · funding · social"] --> G["kNN graph scored against a live baseline<br/>fusion · Leiden communities"] --> SC["verdicts · evidence<br/>vote weights"]
   end
-  SCORE --> WS["FastAPI WebSocket"] --> WEB["Next.js + React Three Fiber HUD"]
-  SCORE --> ORA["oracle: cluster epochs"] --> GOV["MirageGovernance.sol"]
-  NET --> REL["relayer: EIP-191 signed votes"] --> GOV
-  GOV -- "tally(naive / weighted) via viem" --> WEB
-  TRUTH["GroundTruth"] -. "scored after each run" .-> MET["precision · recall · latency"] --> WS
+  NET --> SIG
+  SC --> WS["FastAPI WebSocket"] --> WEB["Next.js + React Three Fiber HUD"]
+  SC -- "oracle: cluster epochs" --> GOV["MirageGovernance.sol<br/>local chain"]
+  NET -- "relayer: EIP-191 signed votes" --> GOV
+  GOV -- "naive + weighted tallies (viem)" --> WEB
+  TRUTH -. "scored after each run" .-> WS
 ```
 
 **The simulator** (`backend/mirage/sim`) owns everything hidden: people's latent profiles, community membership, and the operator's plans. It writes only public artifacts into a `NetworkState`: accounts, posts, follows, transfers, votes and proposals. The same kind of data a real indexer sees.
