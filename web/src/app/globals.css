@@ -1,26 +1,216 @@
 @import "tailwindcss";
 
+@theme {
+  --color-void: #050403;
+  --color-gold: #f5b94a;
+  --color-amber: #ff9f1c;
+  --color-gold-soft: #ffd58a;
+  --color-red: #ff3b30;
+  --color-red-glow: #ff6b5b;
+  --color-ink: #f3e9d8;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Sora", ui-sans-serif, system-ui, sans-serif;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink-dim: rgba(243, 233, 216, 0.56);
+  --ink-faint: rgba(243, 233, 216, 0.3);
+  --hair: rgba(245, 185, 74, 0.22);
+  --hair-strong: rgba(245, 185, 74, 0.55);
+  --glass: rgba(12, 9, 5, 0.62);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: #050403;
+  color: #f3e9d8;
+  overflow: hidden;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+}
+
+::selection {
+  background: rgba(245, 185, 74, 0.35);
+}
+
+/* ---------- HUD typography ---------- */
+.hud-label {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 9.5px;
+  line-height: 1.2;
+  color: var(--ink-dim);
+}
+
+.hud-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.hud-title {
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.32em;
+  font-weight: 300;
+}
+
+/* ---------- glass panels with hairline frames ---------- */
+.panel {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(28, 19, 8, 0.55) 0%, rgba(8, 6, 3, 0.72) 100%),
+    radial-gradient(120% 60% at 0% 0%, rgba(245, 185, 74, 0.08), transparent 60%);
+  backdrop-filter: blur(16px) saturate(1.25);
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
+  border: 1px solid var(--hair);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 213, 138, 0.07),
+    0 24px 70px rgba(0, 0, 0, 0.55);
+}
+
+.panel::before,
+.panel::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  border-color: var(--hair-strong);
+  border-style: solid;
+}
+
+.panel::before {
+  top: -1px;
+  left: -1px;
+  border-width: 1px 0 0 1px;
+}
+
+.panel::after {
+  bottom: -1px;
+  right: -1px;
+  border-width: 0 1px 1px 0;
+}
+
+.panel-red {
+  border-color: rgba(255, 59, 48, 0.28);
+  background:
+    linear-gradient(180deg, rgba(36, 8, 6, 0.6) 0%, rgba(10, 4, 3, 0.74) 100%),
+    radial-gradient(120% 60% at 0% 0%, rgba(255, 59, 48, 0.1), transparent 60%);
+}
+
+.panel-red::before,
+.panel-red::after {
+  border-color: rgba(255, 107, 91, 0.7);
+}
+
+.rule {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--hair-strong), transparent);
+}
+
+.glow-gold {
+  text-shadow: 0 0 18px rgba(245, 185, 74, 0.45);
+}
+
+.glow-red {
+  text-shadow: 0 0 18px rgba(255, 59, 48, 0.6);
+}
+
+/* subtle scanline shimmer used on a few HUD surfaces */
+.scan {
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(255, 213, 138, 0.035) 0px,
+    rgba(255, 213, 138, 0.035) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+@keyframes blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.25;
+  }
+}
+
+.blink {
+  animation: blink 1.2s steps(1) infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-rev {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+input[type="range"].hud-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  width: 100%;
+  height: 22px;
+}
+
+input[type="range"].hud-range::-webkit-slider-runnable-track {
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255, 59, 48, 0.85) var(--fill, 50%), rgba(243, 233, 216, 0.14) var(--fill, 50%));
+}
+
+input[type="range"].hud-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -5px;
+  background: #050403;
+  border: 1.5px solid #ff6b5b;
+  transform: rotate(45deg);
+  box-shadow: 0 0 12px rgba(255, 59, 48, 0.8);
+  cursor: pointer;
+}
+
+input[type="range"].hud-range::-moz-range-track {
+  height: 2px;
+  background: rgba(243, 233, 216, 0.14);
+}
+
+input[type="range"].hud-range::-moz-range-progress {
+  height: 2px;
+  background: rgba(255, 59, 48, 0.85);
+}
+
+input[type="range"].hud-range::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  background: #050403;
+  border: 1.5px solid #ff6b5b;
+  border-radius: 0;
+  transform: rotate(45deg);
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
